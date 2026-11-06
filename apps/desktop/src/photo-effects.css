@@ -1,0 +1,78 @@
+.photo-effects {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.photo-effects button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  min-width: 0;
+  min-height: 0;
+  padding: 8px 7px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-size: 11px;
+  line-height: 1.35;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease;
+}
+.photo-effects button:hover:not(:disabled),
+.photo-effects button[aria-pressed='true'] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+.photo-effects button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.photo-effect-thumbnail {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border-radius: 7px;
+  background: var(--surface-inset);
+}
+.photo-effect-thumbnail img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.photo-effects button > span:last-child {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  text-align: center;
+  text-wrap: balance;
+}
+.photo-effects + .field-hint {
+  margin-top: 10px;
+  line-height: 1.6;
+}
+.photo-effect-check {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  display: grid;
+  place-items: center;
+  width: 19px;
+  height: 19px;
+  border: 1px solid var(--paper);
+  border-radius: 50%;
+  background: var(--action-fill);
+  color: var(--accent-text);
+  font-size: 11px;
+}

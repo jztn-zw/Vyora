@@ -1,0 +1,30 @@
+{
+  "originals": [
+    {
+      "file": "luxury-3.png",
+      "sha256": "cf3abf9cc5c40a7646bd3de0c09b29744d831133ce7def775518e83a3812ab75"
+    },
+    {
+      "file": "film-4.png",
+      "sha256": "258fabe48cce1ea637dd988139228c8d1af7cfc8b080561c6f68ae863407eae7"
+    },
+    {
+      "file": "urban-pop-4.png",
+      "sha256": "9414128f29eafd22d59aa8af6587dab56d3df4cd1bba50f8741f2cc7f16e36aa"
+    },
+    {
+      "file": "neon-4.png",
+      "sha256": "797938534564caaddbe0c6dc6f7bcfc3fd2e92b48797d4fc95823921eae507dd"
+    },
+    {
+      "file": "good-vibes-4.png",
+      "sha256": "7ae144f4f885092077896ab6f4ac3c694c12c82c6b9cb19ad2e195d6b1d50154"
+    },
+    {
+      "file": "vintage-3.png",
+      "sha256": "22164bfa229833e66f5f02d71a80b46ca9492124f84a878204dcf8ba4991ce31"
+    }
+  ],
+  "generatedWith": "Built-in imagegen; new count layouts and Pink Friends refinements",
+  "excluded": ["Instagram", "1-photo variants"]
+}

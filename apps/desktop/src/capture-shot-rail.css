@@ -1,0 +1,97 @@
+.capture-shot-rail {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  z-index: 6;
+  width: min(600px, calc(100% - 40px));
+  color: var(--ink);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.capture-shots-2 {
+  width: min(295px, calc(100% - 40px));
+}
+.capture-shots-3 {
+  width: min(448px, calc(100% - 40px));
+}
+.capture-shot-heading {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
+.capture-shot-tiles {
+  display: flex;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.capture-shot-tile {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--surface-inset);
+  box-shadow: 0 4px 16px #0003;
+}
+.capture-shot-tile.is-current {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+  background: var(--accent-soft);
+}
+.capture-shot-tile > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.capture-shot-placeholder {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 36px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.capture-shot-tile.is-current .capture-shot-placeholder {
+  color: var(--accent);
+}
+.capture-shot-number {
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  display: grid;
+  place-items: center;
+  min-width: 23px;
+  height: 23px;
+  padding-inline: 4px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.capture-shot-tile.is-current .capture-shot-number {
+  background: var(--action-fill);
+  color: var(--accent-text);
+  border-color: transparent;
+}
+.kiosk-mode .capture-shot-rail {
+  bottom: 32px;
+}
+@media (max-height: 650px) {
+  .kiosk-mode .capture-shot-rail {
+    bottom: 22px;
+  }
+}

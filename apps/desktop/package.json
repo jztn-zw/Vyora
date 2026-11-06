@@ -1,0 +1,63 @@
+{
+  "name": "@vyora/desktop",
+  "productName": "VYORA",
+  "version": "0.1.0",
+  "private": true,
+  "description": "VYORA offline photobooth",
+  "keywords": [],
+  "license": "UNLICENSED",
+  "author": "VYORA contributors",
+  "main": ".vite/build/main.cjs",
+  "scripts": {
+    "start": "electron-forge start",
+    "build:icon": "electron scripts/build-icon.cjs",
+    "package": "electron-forge package",
+    "make": "electron scripts/build-installer-assets.cjs && electron-forge make",
+    "test:storage": "electron . --storage-smoke-test",
+    "test:camera": "node --test tests/camera*.test.mjs",
+    "test:printing": "node --test tests/printing*.test.mjs",
+    "test:strips": "node --test tests/photo-strip.test.mjs",
+    "test:templates": "node --test tests/template-layout.test.mjs",
+    "test:free-frames": "node --test tests/included-templates.test.mjs",
+    "test:retakes": "node --test tests/capture-review.test.mjs",
+    "test:countdown": "node --test tests/countdown-timing.test.mjs",
+    "test:deletion": "node --test tests/strip-removal.test.mjs",
+    "test:review-ui": "electron tests/capture-review-smoke.cjs",
+    "lint": "oxlint && oxfmt --check",
+    "lint:fix": "oxlint --fix && oxfmt --write",
+    "typecheck": "tsc --noEmit"
+  },
+  "build": {
+    "appId": "com.squirrel.VYORA.VYORA",
+    "productName": "VYORA",
+    "win": {
+      "executableName": "VYORA"
+    },
+    "publish": null
+  },
+  "devDependencies": {
+    "@electron-forge/cli": "^8.0.1",
+    "@electron-forge/maker-squirrel": "^8.0.1",
+    "@electron-forge/maker-zip": "^8.0.1",
+    "@electron-forge/plugin-fuses": "^8.0.1",
+    "@electron-forge/plugin-vite": "^8.0.1",
+    "@electron/fuses": "^2.1.3",
+    "@types/electron-squirrel-startup": "^1.0.2",
+    "@types/qrcode": "^1.5.6",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "electron": "45.2.1",
+    "electron-forge-maker-nsis": "^26.18.0",
+    "oxfmt": "^0.75.0",
+    "oxlint": "^1.90.0",
+    "typescript": "^6.0.3",
+    "vite": "^8.3.5"
+  },
+  "dependencies": {
+    "@vyora/shared": "*",
+    "electron-squirrel-startup": "^1.0.1",
+    "qrcode": "^1.5.4",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  }
+}

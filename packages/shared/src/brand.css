@@ -1,0 +1,80 @@
+/* Display windows into the user's original 1536 × 1024 brand sheet.
+   Keep the source untouched: its custom letterforms are artwork, not a font.
+   Horizontal lockup: x533 y873 w395 h115. Symbol: x409 y588 w191 h157.
+   Percentages keep the exact artwork proportions at every display size. */
+.vyora-logo,
+.vyora-symbol,
+.vyora-wordmark {
+  display: inline-block;
+  flex-shrink: 0;
+  background-image: url('../assets/vyora-brand-reference.png');
+  background-repeat: no-repeat;
+  filter: grayscale(1) contrast(1.35);
+  mix-blend-mode: multiply;
+  vertical-align: middle;
+}
+
+.vyora-logo {
+  width: 220px;
+  aspect-ratio: 395 / 115;
+  background-size: 388.86076% 890.43478%;
+  background-position: 46.71341% 96.0396%;
+}
+
+.vyora-symbol {
+  width: 44px;
+  aspect-ratio: 191 / 157;
+  background-size: 804.18848% 652.2293%;
+  background-position: 30.40892% 67.82007%;
+}
+
+.vyora-wordmark {
+  width: 92px;
+  aspect-ratio: 226 / 65;
+  background-size: 679.64602% 1575.38462%;
+  background-position: 29.16031% 77.78936%;
+}
+
+.vyora-logo--inverse {
+  filter: grayscale(1) contrast(1.35) invert(1);
+  mix-blend-mode: screen;
+}
+
+/* Color themes use the exact purple/pink artwork in the fourth brand-sheet
+   panel. Keep the custom lettering and emblem as image windows. */
+:root:is([data-theme='light'], [data-theme='vyora']) .vyora-logo {
+  position: relative;
+  background-image: none;
+  filter: none;
+}
+:root:is([data-theme='light'], [data-theme='vyora']) .vyora-logo::before,
+:root:is([data-theme='light'], [data-theme='vyora']) .vyora-logo::after {
+  content: '';
+  position: absolute;
+  background-image: url('../assets/vyora-brand-reference.png');
+  background-repeat: no-repeat;
+}
+:root:is([data-theme='light'], [data-theme='vyora']) .vyora-logo::before {
+  left: 0;
+  top: 0;
+  width: 34%;
+  aspect-ratio: 191 / 157;
+  background-size: 804.18848% 652.2293%;
+  background-position: 74.79554% 67.82007%;
+}
+:root:is([data-theme='light'], [data-theme='vyora']) .vyora-logo::after {
+  right: 0;
+  top: 24%;
+  width: 61%;
+  aspect-ratio: 226 / 65;
+  background-size: 679.64602% 1575.38462%;
+  background-position: 75.03817% 77.78936%;
+}
+:root:is([data-theme='light'], [data-theme='vyora']) .vyora-symbol {
+  filter: none;
+  background-position: 74.79554% 67.82007%;
+}
+:root:is([data-theme='light'], [data-theme='vyora']) .vyora-wordmark {
+  filter: none;
+  background-position: 75.03817% 77.78936%;
+}

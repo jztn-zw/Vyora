@@ -1,0 +1,15 @@
+node_modules/
+.local-data/
+.vite/
+dist/
+out/
+/apps/client/public/downloads/*.exe
+coverage/
+*.log
+.env
+.env.*
+!.env.example
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+.DS_Store

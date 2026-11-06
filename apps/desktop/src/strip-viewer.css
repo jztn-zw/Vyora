@@ -1,0 +1,116 @@
+.strip-viewer {
+  width: min(680px, calc(100vw - 32px));
+  height: min(960px, calc(100dvh - 32px));
+  max-height: calc(100dvh - 32px);
+  padding: 4px;
+  border: 1px solid var(--line-strong);
+  border-radius: 18px;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 24px 90px #0006;
+  overflow: hidden;
+}
+.strip-viewer::backdrop {
+  background: #100b1899;
+  backdrop-filter: blur(6px);
+}
+body:has(.strip-viewer[open]) {
+  overflow: hidden;
+}
+.strip-viewer-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 13px;
+}
+.strip-viewer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 14px 20px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--line);
+}
+.strip-viewer-header h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+}
+.strip-viewer-header .outline-button {
+  min-width: 80px;
+  min-height: 40px;
+}
+.strip-viewer-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 0;
+  flex: 1;
+  padding: 20px;
+  overflow: hidden;
+  background-color: var(--surface);
+  background-image: radial-gradient(var(--grid-dot) 0.6px, transparent 0.6px);
+  background-size: 9px 9px;
+}
+.strip-viewer-stage > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 12px #00000026);
+}
+.strip-viewer-loading {
+  position: absolute;
+  bottom: 12px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--muted);
+  font-size: 11px;
+}
+.strip-viewer-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 18px;
+  padding: 15px 24px;
+  border-top: 1px solid var(--line);
+  flex-shrink: 0;
+}
+.strip-viewer-error {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 24px;
+  background: var(--accent-soft);
+  color: var(--ink);
+  flex-shrink: 0;
+  font-size: 11px;
+  line-height: 1.7;
+}
+.strip-viewer-error button {
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  color: var(--accent);
+  background: var(--paper);
+  padding: 6px 9px;
+  white-space: nowrap;
+  font-size: 10px;
+}
+@media (max-width: 700px) {
+  .strip-viewer-header,
+  .strip-viewer-footer {
+    padding-inline: 16px;
+  }
+  .strip-viewer-stage {
+    padding: 14px;
+  }
+}

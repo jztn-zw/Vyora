@@ -1,0 +1,300 @@
+/* Shared interaction rules for the desktop studio and connected guest devices. */
+:root {
+  --control-duration: 180ms;
+  --control-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --control-radius: 9px;
+  --control-hover-fill: color-mix(
+    in srgb,
+    var(--accent-soft) 68%,
+    var(--paper)
+  );
+  --control-hover-border: color-mix(
+    in srgb,
+    var(--accent) 48%,
+    var(--line-strong)
+  );
+  --control-hover-color: var(--ink);
+  --control-hover-shadow: 0 2px 9px
+    color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+/* Canvas handles and the transparent kiosk start surface keep their own interactions. */
+:root
+  :is(
+    button,
+    summary,
+    select,
+    .studio-select-option,
+    .template-upload-button
+  ):not(
+    :is(
+      .template-photo-move,
+      .template-resize-handle,
+      .template-rotate-handle,
+      .kiosk-start-surface
+    )
+  ) {
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color var(--control-duration) var(--control-ease),
+    border-color var(--control-duration) var(--control-ease),
+    color var(--control-duration) var(--control-ease),
+    box-shadow var(--control-duration) var(--control-ease),
+    opacity var(--control-duration) var(--control-ease),
+    filter var(--control-duration) var(--control-ease),
+    translate var(--control-duration) var(--control-ease),
+    transform var(--control-duration) var(--control-ease);
+}
+
+/* Small action controls share the same corner shape and label weight.
+   Navigation pills, photo cards and canvas tools keep their functional shapes. */
+:root
+  :is(
+    .primary-button,
+    .outline-button,
+    .folder-button,
+    .camera-off-button,
+    .refresh-cameras,
+    .printer-settings-button,
+    .kiosk-back-button,
+    .kiosk-exit-button,
+    .studio-select-trigger,
+    .template-close-button,
+    .template-upload-button,
+    .theme-menu > button,
+    .guest-actions-menu > button,
+    .studio-tools-menu > button,
+    .studio-select-option,
+    .studio-select-tools-toolbar > button,
+    .template-tool-buttons button,
+    .template-zoom-controls button,
+    .guest-actions > summary,
+    .theme-picker > summary,
+    .studio-tools > summary,
+    .camera-picker > summary,
+    select
+  ) {
+  border-radius: var(--control-radius) !important;
+  font-weight: 600;
+}
+:root :is(.guest-actions, .theme-picker, .studio-tools) > summary {
+  min-height: 40px;
+  border-color: var(--line);
+  background: var(--paper);
+  color: var(--ink);
+}
+
+:root
+  :is(
+    button[aria-pressed='true'],
+    .studio-select-option[aria-selected='true']
+  ) {
+  --control-hover-fill: var(--accent-soft);
+  --control-hover-border: var(--accent);
+  --control-hover-color: var(--accent);
+}
+:root
+  :is(
+    .primary-button,
+    .strip-save-button,
+    .nav-item.active,
+    .segmented button.selected,
+    .settings-view-switch button.selected
+  ) {
+  --control-hover-fill: var(--action-hover);
+  --control-hover-border: transparent;
+  --control-hover-color: var(--accent-text);
+  --control-hover-shadow: 0 3px 10px
+    color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+@media (hover: hover) {
+  :root
+    :is(
+      button,
+      summary,
+      select,
+      .studio-select-option,
+      .template-upload-button
+    ):not(
+      :is(
+        .template-photo-move,
+        .template-resize-handle,
+        .template-rotate-handle,
+        .kiosk-start-surface
+      )
+    ):not(:disabled):not([aria-disabled='true']):hover {
+    background: var(--control-hover-fill);
+    border-color: var(--control-hover-border);
+    color: var(--control-hover-color);
+    box-shadow: var(--control-hover-shadow);
+  }
+}
+:root
+  :is(.theme-picker, .guest-actions, .studio-tools, .camera-picker)[open]
+  > summary,
+:root .studio-select-trigger[aria-expanded='true'],
+:root .studio-select-option.is-active {
+  background: var(--control-hover-fill);
+  border-color: var(--control-hover-border);
+  color: var(--control-hover-color);
+  box-shadow: var(--control-hover-shadow);
+}
+
+:root
+  :is(
+    button,
+    summary,
+    select,
+    .studio-select-option,
+    .template-upload-button
+  ):not(
+    :is(
+      .template-photo-move,
+      .template-resize-handle,
+      .template-rotate-handle,
+      .kiosk-start-surface
+    )
+  ):not(:disabled):not([aria-disabled='true']):active {
+  filter: brightness(1.04);
+}
+:root
+  :is(button, summary):not(
+    :is(
+      .template-photo-move,
+      .template-resize-handle,
+      .template-rotate-handle,
+      .kiosk-start-surface,
+      .kiosk-template-card,
+      .booth-frame-option,
+      .capture-review-photo,
+      .strip-card-preview
+    )
+  ):not(:disabled):not([aria-disabled='true']):active {
+  translate: 0 1px;
+}
+:root
+  :is(
+    button,
+    summary,
+    select,
+    .studio-select-option,
+    .template-upload-button
+  ):not(
+    :is(
+      .template-photo-move,
+      .template-resize-handle,
+      .template-rotate-handle,
+      .kiosk-start-surface
+    )
+  ):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  box-shadow: none;
+}
+/* Inset focus rings remain visible inside clipped menus. */
+:root
+  :is(
+    .theme-menu,
+    .guest-actions-menu,
+    .studio-tools-menu,
+    .camera-options,
+    .studio-select-tools-toolbar
+  )
+  button:focus-visible,
+:root .studio-select-option:focus-visible {
+  outline-offset: -3px;
+}
+
+:root
+  :is(button, select, summary):not(
+    :is(
+      .template-photo-move,
+      .template-resize-handle,
+      .template-rotate-handle,
+      .kiosk-start-surface
+    )
+  ):is(:disabled, [aria-disabled='true']) {
+  cursor: not-allowed;
+  opacity: 0.5;
+  box-shadow: none;
+  filter: none;
+  translate: none;
+}
+:root .primary-button:disabled {
+  background: var(--disabled-fill);
+  color: var(--disabled-text);
+  border-color: var(--disabled-fill);
+  opacity: 1;
+}
+/* A display-only photo should retain its original brightness. */
+:root
+  :is(
+    .kiosk-template-card,
+    .booth-frame-option,
+    .capture-review-photo,
+    .strip-card-preview
+  ):disabled {
+  opacity: 1;
+}
+:root
+  :is(.theme-picker, .guest-actions, .camera-picker)
+  > summary
+  > svg:last-child,
+:root .studio-select-chevron {
+  transition: transform var(--control-duration) var(--control-ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root
+    :is(
+      button,
+      summary,
+      select,
+      .studio-select-option,
+      .template-upload-button
+    ),
+  :root
+    :is(.theme-picker, .guest-actions, .camera-picker)
+    > summary
+    > svg:last-child,
+  :root .studio-select-chevron {
+    transition: none !important;
+    animation: none !important;
+  }
+  :root :is(button, summary):active {
+    translate: none !important;
+  }
+}
+
+:root .template-upload-button:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+:root .switch-track {
+  transition: background-color var(--control-duration) var(--control-ease);
+}
+:root .switch-track::after {
+  transition: transform var(--control-duration) var(--control-ease);
+}
+@media (prefers-reduced-motion: reduce) {
+  :root .switch-track,
+  :root .switch-track::after {
+    transition: none !important;
+  }
+}
+
+/* Text actions stay unboxed; only their label picks up the theme accent. */
+:root
+  :is(.text-button, .camera-help-button, .refresh-cameras):hover:not(:disabled),
+:root
+  :is(.text-button, .camera-help-button, .refresh-cameras):active:not(
+    :disabled
+  ) {
+  background: transparent !important;
+  border-color: transparent !important;
+  color: var(--accent-hover) !important;
+  box-shadow: none !important;
+  filter: none !important;
+  translate: none !important;
+}

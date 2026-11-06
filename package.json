@@ -1,0 +1,46 @@
+{
+  "name": "vyora",
+  "version": "0.1.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "description": "Offline-first Windows photobooth and online photo viewer",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22.12.0 <23 || >=24.0.0"
+  },
+  "scripts": {
+    "dev": "npm run start --workspace=@vyora/desktop",
+    "dev:desktop": "npm run start --workspace=@vyora/desktop",
+    "dev:client": "npm run dev --workspace=@vyora/client",
+    "dev:server": "npm run dev --workspace=@vyora/server",
+    "dev:viewer": "npm run dev:client",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "oxlint --deny-warnings apps packages",
+    "format": "oxfmt --write .",
+    "format:check": "oxfmt --check .",
+    "build:client": "npm run build --workspace=@vyora/client",
+    "build:server": "npm run build --workspace=@vyora/server",
+    "build:viewer": "npm run build:client",
+    "start:server": "npm run start --workspace=@vyora/server",
+    "package:desktop": "npm run package --workspace=@vyora/desktop",
+    "make:desktop": "npm run make --workspace=@vyora/desktop",
+    "test:storage": "npm run test:storage --workspace=@vyora/desktop",
+    "test:camera": "npm run test:camera --workspace=@vyora/desktop",
+    "test:printing": "npm run test:printing --workspace=@vyora/desktop",
+    "test:strips": "npm run test:strips --workspace=@vyora/desktop",
+    "test:templates": "npm run test:templates --workspace=@vyora/desktop",
+    "test:free-frames": "npm run test:free-frames --workspace=@vyora/desktop",
+    "test:retakes": "npm run test:retakes --workspace=@vyora/desktop",
+    "test:countdown": "npm run test:countdown --workspace=@vyora/desktop",
+    "test:deletion": "npm run test:deletion --workspace=@vyora/desktop",
+    "test:review-ui": "npm run test:review-ui --workspace=@vyora/desktop"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "oxlint": "^1.90.0",
+    "oxfmt": "^0.75.0"
+  }
+}

@@ -1,0 +1,119 @@
+.camera-help-button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 7px;
+  padding: 5px 6px;
+  border-radius: 6px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 10px;
+}
+.camera-help-button:hover:not(:disabled) {
+  color: var(--accent);
+}
+.camera-help-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: 3px;
+}
+.camera-help-dialog {
+  width: min(580px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  padding: 4px;
+  border: 1px solid var(--line-strong);
+  border-radius: 18px;
+  overflow: hidden;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 24px 90px #0006;
+}
+.camera-help-dialog::backdrop {
+  background: #100b1899;
+  backdrop-filter: blur(6px);
+}
+body:has(.camera-help-dialog[open]) {
+  overflow: hidden;
+}
+.camera-help-shell {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 42px);
+  border-radius: 13px;
+  overflow: hidden;
+}
+.camera-help-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+.camera-help-header h2 {
+  margin: 0 0 6px;
+  font-size: 23px;
+  font-weight: 600;
+  letter-spacing: -0.6px;
+}
+.camera-help-header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+.camera-help-header .outline-button {
+  min-width: 80px;
+  min-height: 40px;
+  flex-shrink: 0;
+}
+.camera-help-content {
+  min-height: 0;
+  padding: 24px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.75;
+  --scroll-track: var(--paper);
+}
+.camera-help-content::-webkit-scrollbar-track {
+  margin-block: 10px;
+}
+.camera-help-content section + section {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+.camera-help-content h3 {
+  margin: 0 0 7px;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+}
+.camera-help-content p {
+  margin: 0;
+}
+.camera-help-content strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+.camera-help-note {
+  margin-top: 24px;
+  padding: 13px 15px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-inset);
+  font-size: 11px;
+}
+.camera-help-note p + p {
+  margin-top: 5px;
+}
+@media (max-width: 700px) {
+  .camera-help-header,
+  .camera-help-content {
+    padding: 18px;
+  }
+}

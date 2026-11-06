@@ -1,0 +1,97 @@
+.studio-tools {
+  position: relative;
+  z-index: 8;
+}
+.studio-tools > summary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 39px;
+  min-height: 39px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  background: var(--paper);
+  cursor: pointer;
+  list-style: none;
+  font-size: 11px;
+  font-weight: 500;
+  transition:
+    background 180ms,
+    border-color 180ms;
+}
+.studio-tools > summary::-webkit-details-marker {
+  display: none;
+}
+.studio-tools > summary > svg {
+  color: var(--muted);
+}
+.studio-tools > summary:hover,
+.studio-tools[open] > summary {
+  background: var(--surface);
+  border-color: var(--line-strong);
+}
+.studio-tools-menu {
+  position: absolute;
+  top: calc(100% + 9px);
+  right: 0;
+  width: min(300px, calc(100vw - 32px));
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--paper);
+  box-shadow: var(--menu-shadow);
+}
+.studio-tools-menu > p {
+  margin: 7px 10px 9px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 500;
+}
+.studio-tools-menu > button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 10px;
+  border: 0;
+  border-radius: 7px;
+  color: var(--ink);
+  background: transparent;
+  text-align: left;
+}
+.studio-tools-menu > button:hover:not(:disabled) {
+  background: var(--surface);
+}
+.studio-tools-menu > button:focus-visible {
+  outline-color: var(--accent);
+  outline-offset: -2px;
+}
+.studio-tools-menu > button > svg {
+  color: var(--muted);
+}
+.studio-tools-menu > button > span {
+  flex: 1;
+  min-width: 0;
+}
+.studio-tools-menu strong {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+}
+.studio-tools-menu small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+.studio-tools-menu > button:last-child > svg:last-child {
+  transform: rotate(-45deg);
+}
+.studio-tools-divider {
+  height: 1px;
+  margin: 6px 10px;
+  background: var(--line);
+}

@@ -1,0 +1,221 @@
+/* Guest booth presentation uses the original kiosk and capture-review styles. */
+body:has(.remote-booth) {
+  min-width: 320px;
+}
+.remote-booth .guest-screen {
+  position: relative;
+  width: 100%;
+  min-height: 100dvh;
+  padding: 0;
+  margin: 0;
+  color: var(--ink);
+}
+.remote-booth .guest-live {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #08070c;
+}
+.remote-booth .guest-camera {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100dvh;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+}
+.remote-booth .guest-fullscreen {
+  position: fixed;
+  top: 18px;
+  right: 22px;
+  z-index: 30;
+  min-height: 42px;
+}
+.guest-notice {
+  padding: 14px 18px;
+  background: var(--accent-soft);
+  border-inline-start: 3px solid var(--accent);
+  border-radius: 8px;
+}
+.remote-booth .guest-notice {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
+  max-width: min(70%, 650px);
+  margin: 0;
+  color: var(--ink);
+  font-size: 13px;
+}
+.remote-booth .guest-review {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+  width: min(1100px, calc(100% - 40px));
+  max-height: calc(100dvh - 70px);
+  padding: 24px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--paper);
+}
+.remote-booth .guest-review .guest-buttons {
+  justify-content: space-between;
+}
+.remote-booth .guest-review .guest-retake-grid button:disabled {
+  opacity: 1;
+}
+.guest-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 18px;
+}
+.guest-small {
+  font-size: 12px;
+  line-height: 1.6;
+}
+.guest-kicker {
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+}
+.guest-pair,
+.guest-wait {
+  width: min(510px, calc(100% - 40px));
+  margin: auto;
+  padding: 60px 0;
+}
+.guest-pair h1,
+.guest-wait h1 {
+  font-size: clamp(30px, 4vw, 52px);
+  letter-spacing: -0.045em;
+}
+.guest-pair p,
+.guest-wait p {
+  color: var(--muted);
+  line-height: 1.7;
+}
+.guest-pair label {
+  display: grid;
+  gap: 8px;
+  margin: 20px 0;
+  color: var(--muted);
+}
+.guest-pair input {
+  padding: 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--paper);
+  color: var(--ink);
+}
+.guest-manager {
+  width: min(940px, calc(100vw - 48px));
+  max-height: calc(100dvh - 60px);
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  color: var(--ink);
+  background: var(--paper);
+  overflow: hidden;
+}
+.guest-manager::backdrop {
+  background: #0d071b99;
+}
+.guest-manager-shell {
+  padding: 28px;
+  max-height: calc(100dvh - 62px);
+  overflow: auto;
+  scrollbar-gutter: stable;
+}
+.guest-manager header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 20px;
+  padding-bottom: 14px;
+}
+.guest-manager h2 {
+  margin: 12px 0;
+  font-size: 28px;
+  letter-spacing: -0.03em;
+}
+.guest-manager h3 {
+  margin-top: 0;
+}
+.guest-manager p {
+  font-size: 13px;
+}
+.guest-connection-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 28px;
+}
+.guest-connection-grid > section {
+  min-width: 0;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface-inset);
+}
+.guest-pairing-details {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 24px;
+  flex-wrap: wrap;
+}
+.guest-pairing-details img {
+  width: 145px;
+  height: 145px;
+  border-radius: 10px;
+}
+.guest-pairing-details > div {
+  flex: 1;
+  min-width: 120px;
+}
+.guest-pairing-details .guest-code {
+  color: var(--ink);
+  font-size: 28px;
+  letter-spacing: 0.12em;
+  font-variant-numeric: tabular-nums;
+  margin: 8px 0;
+}
+.guest-address {
+  overflow-wrap: anywhere;
+  font-family: monospace;
+}
+.guest-devices {
+  margin-top: 24px;
+}
+.guest-devices > div {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 0;
+  border-top: 1px solid var(--line);
+}
+.guest-devices span {
+  flex: 1;
+}
+.guest-devices small {
+  display: block;
+  color: var(--muted);
+  margin-top: 6px;
+}
+@media (max-width: 700px) {
+  .guest-connection-grid {
+    grid-template-columns: 1fr;
+  }
+  .guest-manager-shell {
+    padding: 20px;
+  }
+}

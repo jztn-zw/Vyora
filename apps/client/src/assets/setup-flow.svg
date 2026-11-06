@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 400">
+  <defs>
+    <linearGradient id="orchid" x1="0" x2="1" y1="0" y2="1">
+      <stop stop-color="#efdcfc"/>
+      <stop offset="1" stop-color="#c6a5ed"/>
+    </linearGradient>
+    <linearGradient id="violet" x1="0" x2="1" y1="0" y2="1">
+      <stop stop-color="#cca6ef"/>
+      <stop offset="1" stop-color="#9364c8"/>
+    </linearGradient>
+    <filter id="fold" x="-12%" y="-12%" width="124%" height="124%">
+      <feDropShadow dx="-2" dy="-2" stdDeviation="4" flood-color="#472470" flood-opacity=".12"/>
+    </filter>
+  </defs>
+  <path fill="#ead9fa" d="M820 3c-91-8-144 24-187 83-44 60-89 76-167 72-88-4-134 26-171 79-34 49-42 99-109 129-46 20-128 10-180 34h814Z"/>
+  <path fill="url(#orchid)" filter="url(#fold)" d="M820 42c-85 2-130 28-171 89-34 49-93 61-157 65-62 4-115 37-140 86-28 55-61 90-130 102-37 7-76 6-120 16h718Z"/>
+  <path fill="url(#violet)" filter="url(#fold)" d="M820 111c-78 2-116 23-156 77-34 46-75 54-135 61-64 7-99 45-132 83-33 38-77 55-144 68h567Z"/>
+  <path fill="#f4d4ed" filter="url(#fold)" d="M820 257c-57 8-80 43-119 65-48 28-107 14-165 43-20 10-40 22-58 35h342Z"/>
+  <path fill="none" stroke="#fff7ff" stroke-linecap="round" stroke-opacity=".8" stroke-width="2" d="M796 25c-65 8-110 44-140 91-33 53-86 73-157 76-68 3-111 26-130 61"/>
+</svg>

@@ -1,0 +1,245 @@
+/* One field treatment for the studio, dialogs, editor and paired devices. */
+:root {
+  --field-height: 42px;
+  --field-radius: var(--control-radius, 9px);
+  --field-error: #a93158;
+}
+:root[data-theme='dark'] {
+  --field-error: #f0a1b8;
+}
+:root
+  :is(
+    input:not(
+      [type='checkbox'],
+      [type='radio'],
+      [type='range'],
+      [type='file'],
+      [type='hidden'],
+      [type='button'],
+      [type='submit'],
+      [type='reset'],
+      [type='image'],
+      [type='color']
+    ),
+    textarea,
+    select
+  ) {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: var(--field-height);
+  padding: 10px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--field-radius);
+  background: var(--surface-inset);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.5;
+  transition:
+    background-color var(--control-duration, 180ms) var(--control-ease, ease),
+    border-color var(--control-duration, 180ms) var(--control-ease, ease),
+    box-shadow var(--control-duration, 180ms) var(--control-ease, ease);
+}
+:root textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+:root :is(input, textarea)::placeholder {
+  color: var(--subtle);
+  opacity: 1;
+}
+@media (hover: hover) {
+  :root
+    :is(
+      input:not(
+        [type='checkbox'],
+        [type='radio'],
+        [type='range'],
+        [type='file'],
+        [type='hidden'],
+        [type='color']
+      ),
+      textarea
+    ):not(:disabled):not([readonly]):hover {
+    border-color: var(--accent);
+    background: var(--paper);
+  }
+}
+:root
+  :is(input, textarea, select):not(
+    [type='checkbox'],
+    [type='radio'],
+    [type='range'],
+    [type='file'],
+    [type='hidden']
+  ):focus {
+  border-color: var(--accent);
+  box-shadow: none;
+}
+:root :is(input, textarea, select):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+:root :is(input, textarea, select):disabled {
+  cursor: not-allowed;
+  color: var(--disabled-text);
+  background: var(--disabled-fill);
+  border-color: var(--line);
+  opacity: 0.65;
+}
+:root :is(input, textarea)[readonly] {
+  color: var(--muted);
+  cursor: default;
+}
+:root :is(input, textarea, select)[aria-invalid='true'] {
+  border-color: var(--field-error);
+}
+:root :is(input, textarea, select)[aria-invalid='true']:focus-visible {
+  outline-color: var(--field-error);
+}
+:root
+  :is(
+    input[type='number'],
+    input[inputmode='numeric'],
+    input[inputmode='decimal']
+  ) {
+  font-variant-numeric: tabular-nums;
+}
+
+:root .number-input {
+  display: inline-grid;
+  grid-template-columns: minmax(0, 1fr) 30px;
+  align-items: stretch;
+  width: 100%;
+  min-width: 0;
+  min-height: var(--field-height);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--field-radius);
+  background: var(--surface-inset);
+  overflow: hidden;
+  transition:
+    border-color var(--control-duration, 180ms) var(--control-ease, ease),
+    background-color var(--control-duration, 180ms) var(--control-ease, ease);
+}
+:root .number-input > input {
+  width: 100%;
+  height: 100%;
+  min-height: 40px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  appearance: textfield;
+  opacity: 1;
+}
+:root .number-input > input::-webkit-inner-spin-button,
+:root .number-input > input::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}
+:root .number-input > input:is(:focus, :focus-visible) {
+  outline: none;
+  box-shadow: none;
+}
+:root .number-input:focus-within {
+  border-color: var(--accent);
+  box-shadow: none;
+}
+:root .number-input:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+@media (hover: hover) {
+  :root .number-input:not(:has(input:disabled, input[readonly])):hover {
+    border-color: var(--accent);
+    background: var(--paper);
+  }
+}
+:root .number-input:has(input:disabled) {
+  background: var(--disabled-fill);
+  border-color: var(--line);
+}
+:root .number-input:has(input[aria-invalid='true']) {
+  border-color: var(--field-error);
+}
+:root .number-input-arrows {
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  min-width: 0;
+  border-left: 1px solid var(--line);
+}
+:root .number-input .number-step-button {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0 !important;
+  background: var(--surface);
+  color: var(--muted);
+  line-height: 1;
+  translate: none !important;
+}
+:root .number-input .number-step-button + .number-step-button {
+  border-top: 1px solid var(--line);
+}
+:root .number-input .number-step-button:focus-visible {
+  outline-offset: -3px;
+}
+:root .number-input .number-step-button:hover:not(:disabled) {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+:root .template-number-field:has(input:disabled) {
+  opacity: 1;
+}
+:root .printer-quantity .number-input {
+  width: 100px;
+  flex: none;
+}
+
+/* Native checkboxes/radios retain their accessible semantics; the mirror switch stays custom. */
+:root input:is([type='checkbox'], [type='radio']):not(.mirror-control input) {
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  flex: none;
+  margin-inline: 0;
+  padding: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+:root input[type='range'] {
+  width: 100%;
+  min-height: 24px;
+  padding: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+:root input[type='color'] {
+  width: 48px;
+  height: var(--field-height);
+  padding: 4px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--field-radius);
+  background: var(--surface-inset);
+  cursor: pointer;
+}
+:root input[type='file']::file-selector-button {
+  margin-right: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--field-radius);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root :is(input, textarea, select, .number-input) {
+    transition: none !important;
+  }
+}

@@ -1,0 +1,42 @@
+.exit-booth-dialog {
+  width: min(420px, calc(100vw - 40px));
+  padding: 26px;
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: var(--menu-shadow);
+}
+.exit-booth-dialog::backdrop {
+  background: #100b1899;
+  backdrop-filter: blur(6px);
+}
+body:has(.exit-booth-dialog[open]) {
+  overflow: hidden;
+}
+.exit-booth-kicker {
+  color: var(--accent);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.3px;
+}
+.exit-booth-dialog h2 {
+  margin: 10px 0 8px;
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.5px;
+}
+.exit-booth-dialog p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+.exit-booth-dialog footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}

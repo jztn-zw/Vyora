@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/src/assets/vyora-favicon.png" />
+    <meta name="theme-color" content="#fdfaff" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta
+      name="description"
+      content="VYORA is a Windows photo booth for capturing, retaking, saving, and printing custom photo strips."
+    />
+    <title>VYORA</title>
+    <script>
+      window.addEventListener('pagereveal', (event) => {
+        if (!event.viewTransition) return;
+
+        // A cold navigation can reach its first paint before React has mounted.
+        if (!document.querySelector('#root main')) {
+          event.viewTransition.skipTransition();
+          return;
+        }
+
+        document.documentElement.setAttribute('data-native-transition', '');
+      });
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
