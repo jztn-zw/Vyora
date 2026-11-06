@@ -40,6 +40,9 @@ In the booth settings, open **Frame**, then choose **Upload a template**.
 Each new session uses four photos. Photos fill the marked areas in numbered
 order with centered cropping. If capture stops early, finish the remaining
 photos from review before saving. The included Doodle template remains available.
+Older custom frames with fewer openings can be opened from the Studio template
+picker to add photo areas. Guests see them once they have four areas and the
+organizer enables them.
 
 Templates work offline and remain in the dropdown after restarting. The last
 selection is remembered on the device. In the template picker, use the three-dot

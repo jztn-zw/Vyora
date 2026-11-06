@@ -331,6 +331,22 @@ app.whenReady().then(async () => {
       path.join(artifacts, 'capture-review.png'),
       screenshot.toPNG(),
     );
+    const originalSize = window.getContentSize();
+    window.setContentSize(740, 650);
+    await until('innerWidth <= 760');
+    assert.equal(
+      await evaluate(
+        "getComputedStyle(document.querySelector('.capture-review-photo-grid')).gridTemplateColumns.split(' ').length",
+      ),
+      2,
+    );
+    assert.equal(
+      await evaluate(
+        "document.querySelector('.capture-review-footer .primary-button').getBoundingClientRect().bottom < innerHeight",
+      ),
+      true,
+    );
+    window.setContentSize(...originalSize);
     await evaluate(`(() => {
       window.__captureCanvases = [];
       const create = document.createElement.bind(document);

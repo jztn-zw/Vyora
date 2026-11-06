@@ -602,6 +602,9 @@ function App() {
     () => groupFrameChoices(templates, shots),
     [templates, shots],
   );
+  const olderCustomFrames = templates.filter(
+    (template) => !template.builtIn && template.slots.length !== shots,
+  );
 
   async function chooseTemplate(id: string) {
     if (session.current || pendingStrip) return false;
@@ -2242,7 +2245,15 @@ function App() {
                       loadingTemplate ||
                       !!exportingStrip
                     }
-                    onChange={(value) => void chooseTemplate(value)}
+                    onChange={(value) => {
+                      if (
+                        olderCustomFrames.some(
+                          (template) => template.id === value,
+                        )
+                      )
+                        void editSavedTemplate(value);
+                      else void chooseTemplate(value);
+                    }}
                     getActions={(id) => {
                       const target = templates.find(
                         (template) => template.id === id,
@@ -2274,6 +2285,11 @@ function App() {
                         description: choice.template.builtIn
                           ? 'Free VYORA frame · 4 photos'
                           : `${choice.template.slots.length} photo areas · custom frame`,
+                      })),
+                      ...olderCustomFrames.map((template) => ({
+                        value: template.id,
+                        label: template.name,
+                        description: 'Edit to add 4 photo areas',
                       })),
                     ]}
                   />

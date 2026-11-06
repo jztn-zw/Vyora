@@ -420,6 +420,11 @@ app.whenReady().then(async () => {
     await until("!document.querySelector('.template-dialog[open]')");
     assert.equal(savedTemplate.id, savedId);
     assert.equal(savedTemplate.name, 'Edited saved template');
+    const olderTemplate = {
+      ...savedTemplate,
+      name: 'Legacy short frame',
+      slots: savedTemplate.slots.slice(0, 2),
+    };
     await openTools();
     await evaluate(
       "document.querySelectorAll('.studio-select-tools-toolbar:popover-open button')[1].click()",
@@ -447,6 +452,42 @@ app.whenReady().then(async () => {
         )
       ).includes('Doodle No. 01'),
     );
+    savedTemplate = olderTemplate;
+    await window.loadFile(
+      path.join(bundle, '.vite/renderer/main_window/index.html'),
+    );
+    await until("!!document.querySelector('[aria-controls=frame-settings]')");
+    await evaluate(
+      "document.querySelector('[aria-controls=frame-settings]').click()",
+    );
+    await until(
+      "!document.querySelector('#frame-settings .studio-select-trigger').disabled",
+    );
+    await evaluate(
+      "document.querySelector('#frame-settings .studio-select-trigger').click()",
+    );
+    await until(
+      "Array.from(document.querySelectorAll('.studio-select-option')).some(option => option.textContent.includes('Legacy short frame'))",
+    );
+    await evaluate(
+      "Array.from(document.querySelectorAll('.studio-select-option')).find(option => option.textContent.includes('Legacy short frame')).click()",
+    );
+    await until("!!document.querySelector('.template-dialog[open]')");
+    assert.equal(
+      await evaluate(
+        "document.querySelector('.template-dialog-footer .primary-button').disabled",
+      ),
+      true,
+    );
+    await evaluate(
+      "document.querySelector('.template-quick-layouts button').click()",
+    );
+    await evaluate(
+      "document.querySelector('.template-dialog-footer .primary-button').click()",
+    );
+    await until("!document.querySelector('.template-dialog[open]')");
+    assert.equal(savedTemplate.id, savedId);
+    assert.equal(savedTemplate.slots.length, 4);
     console.log(
       'PASS: first-launch notices, decline, acceptance/revision/storage failure, notice reopening, mouse tilt, deselection, white grips, per-row template tools and edit/remove',
     );
