@@ -4,11 +4,12 @@ import { defineConfig } from 'vite';
 
 const installerUrl = '/downloads/VYORA-0.1.0-Setup.exe';
 const installerPath = fileURLToPath(new URL(`./public${installerUrl}`, import.meta.url));
+const publicInstallerUrl = process.env.VITE_WINDOWS_INSTALLER_URL?.trim();
 
 export default defineConfig({
   define: {
     'import.meta.env.VITE_WINDOWS_INSTALLER_URL': JSON.stringify(
-      existsSync(installerPath) ? installerUrl : '',
+      publicInstallerUrl || (existsSync(installerPath) ? installerUrl : ''),
     ),
   },
   server: {
