@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { findCameraSideBands } from '../src/camera-frame.ts';
 import {
   cameraErrorMessage,
   isTestCamera,
@@ -10,6 +11,28 @@ import {
   saveCamera,
   resolveCameraId,
 } from '../src/camera.ts';
+
+test('only matching black side bands are treated as camera padding', () => {
+  const width = 160;
+  const height = 90;
+  function sample(left, right) {
+    const data = new Uint8ClampedArray(width * height * 4);
+    for (let y = 0; y < height; y++) {
+      for (let x = left; x < width - right; x++) {
+        data[(y * width + x) * 4] = 100;
+      }
+    }
+    return { data, width, height };
+  }
+  assert.deepEqual(findCameraSideBands(sample(20, 19)), {
+    left: 20,
+    right: 19,
+  });
+  assert.equal(findCameraSideBands(sample(20, 0)), null);
+  assert.equal(findCameraSideBands(sample(20, 10)), null);
+  assert.equal(findCameraSideBands(sample(0, 0)), null);
+  assert.equal(findCameraSideBands(sample(80, 80)), null);
+});
 
 function webcam(label = 'Integrated Camera') {
   const track = {

@@ -2,8 +2,16 @@ import { Children, useEffect, useRef } from 'react';
 import { createFrameUpdates } from './editor-frame-updates';
 import type { ReactNode } from 'react';
 
-export function FrameCarousel({ children }: { children: ReactNode }) {
+export function FrameCarousel({
+  children,
+  variant = 'kiosk',
+}: {
+  children: ReactNode;
+  variant?: 'kiosk' | 'studio';
+}) {
   const row = useRef<HTMLDivElement>(null);
+  const cardSelector =
+    variant === 'studio' ? '.studio-frame-card' : '.kiosk-template-card';
   const wheelTarget = useRef<number | null>(null);
   const resetWheel = useRef(() => {
     wheelTarget.current = null;
@@ -209,9 +217,10 @@ export function FrameCarousel({ children }: { children: ReactNode }) {
     const element = row.current;
     if (!element) return;
     resetWheel.current();
-    const card = element.querySelector<HTMLElement>('.kiosk-template-card');
+    const card = element.querySelector<HTMLElement>(cardSelector);
+    const gap = parseFloat(getComputedStyle(element).columnGap) || 0;
     element.scrollBy({
-      left: direction * ((card?.offsetWidth ?? 210) + 18),
+      left: direction * (card ? card.offsetWidth + gap : element.clientWidth),
       behavior: behavior(),
     });
   }
@@ -219,7 +228,9 @@ export function FrameCarousel({ children }: { children: ReactNode }) {
     <div className="kiosk-frame-carousel">
       <div
         ref={row}
-        className="kiosk-template-grid"
+        className={
+          variant === 'studio' ? 'studio-frame-track' : 'kiosk-template-grid'
+        }
         role="region"
         aria-label="Photo frames. Scroll left or right to explore."
         tabIndex={0}
@@ -230,7 +241,7 @@ export function FrameCarousel({ children }: { children: ReactNode }) {
           resetWheel.current();
           const cards = Array.from(
             row.current!.querySelectorAll<HTMLButtonElement>(
-              '.kiosk-template-card:not(:disabled)',
+              cardSelector + ':not(:disabled)',
             ),
           );
           const focused = cards.indexOf(

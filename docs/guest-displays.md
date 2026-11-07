@@ -5,17 +5,17 @@ VYORA keeps one camera and capture session on the Windows host. Guest displays r
 ## A connected monitor
 
 1. Connect the display and choose **Extend these displays** in Windows.
-2. In the Studio's **Guest booth** panel, choose **Display settings**. You can also open **Tools (⋯) → Guest display** from either main tab.
+2. Open **Studio tools (⋯) → Guest displays** from either main tab.
 3. Select the extended display and choose **Open guest screen**.
 4. Keep the laptop as the controller. The normal Studio is operator assisted: guests see the full-screen preview, countdown and result while you control the shots.
-5. **Set up booth** opens organizer setup. Choose frames and timing, then **Start full-screen booth**. The original full-screen guest interface opens on the main screen and is mirrored as an interactive guest interface on the connected screen. Guests can touch either screen to choose frames, start photos, retake and confirm.
+5. **Guest booth → Start guest booth** opens organizer setup. Choose frames and timing, then **Start full-screen booth**. The original full-screen guest interface opens on the main screen and is mirrored as an interactive guest interface on the connected screen. Guests can touch either screen to choose frames, start photos, retake and confirm.
 
 A single display can preview the guest window. Use Alt+Tab to return to the controller. A plain monitor needs touch input or a mouse for self-service actions. Displays supplied by third-party software can be selected if Windows exposes them as extended displays; that software's compatibility and license are separate.
 
 ## Android, iPad, Mac or another computer
 
 1. Connect both devices to the same private local Wi-Fi or laptop hotspot. Internet access is not required, but devices must be able to communicate; guest Wi-Fi may isolate clients.
-2. Choose **Display settings → Enable tablet pairing**. If Windows asks, allow VYORA on the private network used for the booth.
+2. Open **Studio tools (⋯) → Guest displays** and select **Enable tablet pairing**. If Windows asks, allow VYORA on the private network used for the booth.
 3. Scan the QR code or open the displayed address in a current browser. Enter a device name and pairing code, then choose **Connect to VYORA**.
 4. Approve the named device on the laptop. Only approved devices receive session photos and controls.
 5. Use the guest page's **Full screen** button where the browser supports it. No store app or spacedesk installation is required.
@@ -27,7 +27,7 @@ This is a local HTTP connection for a private, trusted network; it is not encryp
 ## Session behavior
 
 - **Operator assisted:** guests see live preview, countdown and review; the organizer chooses frames, starts captures, requests retakes and confirms saving. After a successful save, the guest screen automatically returns to the live camera and get-ready message for the next group. Self-service retains its finished-strip screen and Next group action.
-- **Self service:** guests choose from the organizer's allowed frames, start, select individual retakes, confirm, and move to the next group. This mode is entered through **Set up booth → Start full-screen booth** and retains the original carousel, full-screen camera and review design. The main screen and connected guest screen follow the same session. Exit the booth to return to operator-assisted Studio.
+- **Self service:** guests choose from the organizer's allowed frames, start, select individual retakes, confirm, and move to the next group. This mode is entered through **Start guest booth → Start full-screen booth** and retains the original carousel, full-screen camera and review design. The main screen and connected guest screen follow the same session. Exit the booth to return to operator-assisted Studio.
 - **Pause booth** prevents new guest actions. **Stop & pause** interrupts the current countdown and preserves already captured photos for review.
 - Disconnecting a monitor or browser does not close the host session or discard captured photos. A reconnected guest returns to the current session. Closing the host application still loses any unconfirmed photos held in memory, as before.
 - The host is the only capture owner. Commands include a session-state revision. Stale, repeated, concurrent, unavailable and unauthorized actions are rejected; saving retains the existing single-save lock.

@@ -1,7 +1,8 @@
 import { readTheme } from './theme';
 
-// Run before React mounts so the saved theme also styles the first frame.
-document.documentElement.dataset.theme = readTheme(
-  { getItem: (key) => localStorage.getItem(key) },
-  matchMedia('(prefers-color-scheme: dark)').matches,
-);
+// Apply appearance before the first-launch notice or Studio renders.
+const theme = readTheme({ getItem: (key) => localStorage.getItem(key) });
+document.documentElement.dataset.theme = theme;
+void window.vyora?.setTheme?.(theme).catch(() => {
+  /* The page remains themed if native chrome is unavailable. */
+});

@@ -344,14 +344,13 @@ export function detectPhotoSlots(
     );
   }
   const transparent = regions('transparent');
-  if (transparent.length >= 2 && transparent.length <= 4)
-    return { slots: transparent, layer: 'overlay' as const, detected: true };
-  const white = regions('white');
-  if (white.length >= 2 && white.length <= 4)
-    return { slots: white, layer: 'background' as const, detected: true };
+  const isOverlay = transparent.length >= 2;
+  const candidates = isOverlay ? transparent : regions('white');
+  const detected = candidates.length >= 2 && candidates.length <= 4;
   return {
-    slots: [] as PhotoSlot[],
-    layer: 'background' as const,
-    detected: false,
+    slots: detected ? candidates : [],
+    layer: isOverlay ? ('overlay' as const) : ('background' as const),
+    detected,
+    excessOpenings: candidates.length > 4 ? candidates.length : undefined,
   };
 }

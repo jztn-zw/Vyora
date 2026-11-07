@@ -112,10 +112,6 @@ body:has(.template-dialog[open]) {
   width: 100%;
   cursor: pointer;
 }
-.template-upload-button:focus-within {
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
-}
 .template-editor-layout {
   flex: 1;
   min-height: 0;
@@ -289,18 +285,6 @@ body:has(.template-dialog[open]) {
   background: repeating-conic-gradient(#ddd 0% 25%, #fff 0% 50%) 50% / 14px 14px;
   box-shadow: 0 4px 18px #0002;
 }
-.template-canvas img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  user-select: none;
-}
-.template-canvas.is-preview {
-  cursor: default;
-}
 .template-canvas.is-drawing {
   cursor: crosshair;
 }
@@ -315,34 +299,15 @@ body:has(.template-dialog[open]) {
 .template-canvas.is-drawing .template-photo-move {
   pointer-events: none;
 }
-.template-sample-preview {
+.template-composition {
   position: absolute;
   inset: 0;
   pointer-events: none;
 }
-.template-sample-preview > svg {
+.template-composition > svg {
   display: block;
   width: 100%;
   height: 100%;
-}
-.template-photo-fill-layer {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  pointer-events: none;
-  z-index: 1;
-}
-.template-photo-fill {
-  position: absolute;
-  pointer-events: none;
-}
-.template-photo-fill > .photo-placeholder {
-  position: absolute;
-  inset: 0;
-  display: block;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
 }
 .template-photo-area {
   position: absolute;
@@ -355,6 +320,12 @@ body:has(.template-dialog[open]) {
   border: 1.5px solid #a855f7;
   box-shadow: none;
   z-index: 2;
+}
+.template-canvas.is-preview .template-photo-area:not(.selected) {
+  border-color: transparent;
+}
+.template-canvas.is-preview .template-photo-area:not(.selected) b {
+  visibility: hidden;
 }
 .template-photo-move {
   position: absolute;
@@ -400,19 +371,21 @@ body:has(.template-dialog[open]) {
 .template-resize-handle:active:not(:disabled)::after {
   background: #ffffff;
   border-color: #a855f7;
-  box-shadow: 0 0 0 2px #a855f740;
 }
 .template-dialog .template-resize-handle:focus-visible {
   outline: none;
 }
 .template-resize-handle:focus-visible::after {
-  box-shadow:
-    0 0 0 3px var(--accent-soft),
-    0 0 0 4px var(--accent);
+  outline: 2px solid #a855f7;
+  outline-offset: -2px;
 }
 .template-dialog .template-photo-move:focus-visible {
+  outline: none;
+}
+.template-photo-area:has(> .template-photo-move:focus-visible),
+.template-dialog .template-rotate-handle:focus-visible {
   outline: 2px solid var(--accent);
-  outline-offset: 3px;
+  outline-offset: -2px;
 }
 .template-rotate-handle {
   position: absolute;
@@ -628,19 +601,6 @@ body:has(.template-dialog[open]) {
   padding-left: 12px;
   border-left: 2px solid var(--accent);
 }
-.template-quick-layouts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.template-area-count-stepper {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 28px;
-  border: 1px solid var(--line-strong);
-  border-radius: 7px;
-  background: var(--surface-inset);
-  overflow: hidden;
-}
 .template-geometry-fields {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -654,50 +614,6 @@ body:has(.template-dialog[open]) {
 }
 .template-number-field:has(input:disabled) {
   opacity: 0.5;
-}
-.template-area-count-stepper input {
-  min-width: 0;
-  height: 44px;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  appearance: textfield;
-}
-.template-area-count-stepper input::-webkit-inner-spin-button,
-.template-area-count-stepper input::-webkit-outer-spin-button {
-  appearance: none;
-  margin: 0;
-}
-.template-area-count-stepper:focus-within {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent);
-}
-.template-count-arrows {
-  display: grid;
-  grid-template-rows: 1fr 1fr;
-  border-left: 1px solid var(--line);
-}
-.template-count-arrows .template-count-arrow {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-width: 0;
-  min-height: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  color: var(--muted);
-  background: var(--surface);
-}
-.template-count-arrows .template-count-arrow + .template-count-arrow {
-  border-top: 1px solid var(--line);
-}
-.template-count-arrow:hover:not(:disabled) {
-  color: var(--accent);
-  background: var(--accent-soft);
-}
-.template-count-arrow:focus-visible {
-  outline-offset: -2px;
 }
 .template-count-hint {
   font-size: 10px;

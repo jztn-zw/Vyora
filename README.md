@@ -65,7 +65,7 @@ stop the current session and keep shots already captured for review as a partial
 The preview can recover after a temporary pause, but a stopped session does not
 resume automatically. Stalled connections time out after 15 seconds.
 
-For a guest-facing event experience, choose **Set up booth** in the Studio's Guest booth panel.
+For a guest-facing event experience, choose **Start guest booth** in Studio.
 First select the four-photo frames guests may choose, set the countdown,
 then choose **Start full-screen booth**. Guests select an
 enabled frame from the centered chooser over the full-screen live camera, see a get-ready prompt, and tap **Start photos** to begin the
@@ -74,7 +74,7 @@ shown on screen; **Next group** returns to the frame chooser. **Exit booth**
 returns to Studio. Kiosk mode works offline; online galleries and online photo sharing
 aren’t part of this flow yet. See the [guest booth guide](docs/guest-kiosk-mode.md).
 
-Choose **Display settings** in that panel (or **Tools → Guest display**) to keep the laptop as an organizer controller and show
+Choose **Studio tools (⋯) → Guest displays** to keep the laptop as an organizer controller and show
 the booth on an extended monitor or a paired browser on an Android tablet,
 iPad, Mac or another computer on the same private network. Both operator-assisted
 and self-service sessions use one camera and save on the Windows host.
@@ -121,10 +121,9 @@ submit one job at a time. **Sent to printer** means Windows accepted the job, no
 that the physical print has finished. See [printing setup](docs/printing.md) for
 paper alignment, cutting, and uncertain-job recovery.
 
-Use the appearance menu beside **Tools** to choose **Light**, **Dark**, or
-**VYORA**. VYORA uses the original purple/pink logo artwork and matching accents.
-The choice is saved on this device and restored when the app opens. Without a
-saved choice, the first launch follows the system's light/dark preference.
+Open **Studio tools (⋯) → Appearance** to choose **VYORA**, **Light**, or
+**Dark**. The first launch uses VYORA's purple and pink theme. The app saves
+your choice on this device and restores it when you reopen Studio.
 
 Custom PNG/JPEG frames can be imported through **Upload a strip template** in
 the booth settings. Review or mark four photo areas, try sample photos, then

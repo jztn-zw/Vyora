@@ -62,27 +62,19 @@
         [type='color']
       ),
       textarea
-    ):not(:disabled):not([readonly]):hover {
-    border-color: var(--accent);
+    ):not(.number-input > input):not(:disabled):not([readonly]):hover {
     background: var(--paper);
   }
 }
-:root
-  :is(input, textarea, select):not(
-    [type='checkbox'],
-    [type='radio'],
-    [type='range'],
-    [type='file'],
-    [type='hidden']
-  ):focus {
-  border-color: var(--accent);
-  box-shadow: none;
-}
 :root :is(input, textarea, select):focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
+  outline: 2px solid var(--control-focus-color);
+  outline-offset: -2px;
 }
-:root :is(input, textarea, select):disabled {
+:root :is(.mirror-control, .template-upload-button) input:focus-visible {
+  outline: none;
+}
+/* The mirror switch uses its track to show the disabled state. */
+:root :is(input, textarea, select):disabled:not(.mirror-control input) {
   cursor: not-allowed;
   color: var(--disabled-text);
   background: var(--disabled-fill);
@@ -142,17 +134,12 @@
   outline: none;
   box-shadow: none;
 }
-:root .number-input:focus-within {
-  border-color: var(--accent);
-  box-shadow: none;
-}
-:root .number-input:has(input:focus-visible) {
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
+:root .number-input:has(> input:focus) {
+  outline: 2px solid var(--control-focus-color);
+  outline-offset: -2px;
 }
 @media (hover: hover) {
-  :root .number-input:not(:has(input:disabled, input[readonly])):hover {
-    border-color: var(--accent);
+  :root .number-input:has(> input:not(:disabled, [readonly]):hover) {
     background: var(--paper);
   }
 }
@@ -162,6 +149,7 @@
 }
 :root .number-input:has(input[aria-invalid='true']) {
   border-color: var(--field-error);
+  --control-focus-color: var(--field-error);
 }
 :root .number-input-arrows {
   display: grid;
@@ -185,9 +173,6 @@
 }
 :root .number-input .number-step-button + .number-step-button {
   border-top: 1px solid var(--line);
-}
-:root .number-input .number-step-button:focus-visible {
-  outline-offset: -3px;
 }
 :root .number-input .number-step-button:hover:not(:disabled) {
   color: var(--accent);

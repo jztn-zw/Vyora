@@ -103,6 +103,16 @@ app.whenReady().then(async () => {
       }
       throw new Error(`Editor condition timed out: ${source}`);
     };
+    const addMissingAreas = async () => {
+      for (const count of [3, 4]) {
+        await evaluate(
+          `document.querySelector('button[aria-label="Increase Number of areas"]').click()`,
+        );
+        await until(
+          `document.querySelector('input[aria-label="Number of areas"]').value === '${count}'`,
+        );
+      }
+    };
     const dragTilt = async (degrees) => {
       const geometry = await evaluate(`(() => {
         const handle = document.querySelector('.template-rotate-handle').getBoundingClientRect();
@@ -261,6 +271,47 @@ app.whenReady().then(async () => {
     );
     await until("!document.querySelector('.usage-notice-dialog')");
     await until("!!document.querySelector('.settings-view-switch')");
+    const studioSize = window.getContentSize();
+    const studioGeometry = () =>
+      evaluate(`[
+      ...['.capture-column', '.viewfinder', '.settings-panel'].map(
+        selector => document.querySelector(selector).getBoundingClientRect().height,
+      ),
+      document.querySelector('.session-summary').getBoundingClientRect().top + scrollY,
+    ]`);
+    for (const size of [studioSize, [840, 680]]) {
+      window.setContentSize(...size);
+      await until(`innerWidth === ${size[0]} && innerHeight === ${size[1]}`);
+      await evaluate(
+        "document.querySelector('[aria-controls=capture-settings]').click()",
+      );
+      await until(
+        "document.querySelector('[aria-controls=capture-settings]').getAttribute('aria-pressed') === 'true'",
+      );
+      const captureGeometry = await studioGeometry();
+      await evaluate(
+        "document.querySelector('[aria-controls=frame-settings]').click()",
+      );
+      await until(
+        "document.querySelector('[aria-controls=frame-settings]').getAttribute('aria-pressed') === 'true'",
+      );
+      assert.deepEqual(
+        await studioGeometry(),
+        captureGeometry,
+        'Switching settings tabs must preserve the preview, cards and footer',
+      );
+      assert.equal(
+        await evaluate(`(() => {
+        const tab = document.querySelector('[aria-controls=frame-settings]');
+        tab.focus();
+        document.querySelector('#capture-settings .camera-picker summary').focus();
+        return document.activeElement === tab;
+      })()`),
+        true,
+        'The inactive tab must stay out of keyboard focus',
+      );
+    }
+    window.setContentSize(...studioSize);
     await evaluate(
       "document.querySelectorAll('.settings-view-switch button')[1].click()",
     );
@@ -291,6 +342,107 @@ app.whenReady().then(async () => {
     await dragTilt(-20);
     await until(
       "Math.abs(parseFloat(document.querySelector('.template-photo-area.selected').style.transform.replace('rotate(', ''))) < 2",
+    );
+    const selectLayer = async (label) => {
+      await evaluate(
+        'document.querySelector(\'[aria-label^="Frame position:"]\').click()',
+      );
+      await until(
+        "!!document.querySelector('.studio-select-menu:popover-open [role=option]')",
+      );
+      await evaluate(
+        `Array.from(document.querySelectorAll('.studio-select-menu:popover-open [role=option]')).find(option => option.textContent.trim().startsWith(${JSON.stringify(label)})).click()`,
+      );
+      await until(
+        `!!document.querySelector(${JSON.stringify('[aria-label="Frame position: ' + label + '"]')})`,
+      );
+    };
+    const dragResize = async () => {
+      const geometry = await evaluate(`(() => {
+        const area = document.querySelector('.template-photo-area.selected');
+        const handle = area.querySelector('.handle-e');
+        const box = handle.getBoundingClientRect();
+        const x = Math.round(box.x + box.width / 2);
+        const y = Math.round(box.y + box.height / 2);
+        return { x, y, width: parseFloat(area.style.width), hittable: document.elementFromPoint(x, y) === handle };
+      })()`);
+      assert.equal(
+        geometry.hittable,
+        true,
+        'The selected resize handle must be above the artwork',
+      );
+      contents.sendInputEvent({
+        type: 'mouseDown',
+        x: geometry.x,
+        y: geometry.y,
+        button: 'left',
+        clickCount: 1,
+      });
+      contents.sendInputEvent({
+        type: 'mouseMove',
+        x: geometry.x - 12,
+        y: geometry.y,
+        button: 'left',
+      });
+      contents.sendInputEvent({
+        type: 'mouseUp',
+        x: geometry.x - 12,
+        y: geometry.y,
+        button: 'left',
+        clickCount: 1,
+      });
+      await until(
+        `parseFloat(document.querySelector('.template-photo-area.selected').style.width) < ${geometry.width - 1}`,
+      );
+    };
+    await evaluate(
+      "document.querySelector('.template-view-tabs button:nth-child(2)').click()",
+    );
+    await until(
+      "!!document.querySelector('.template-canvas.is-preview .template-photo-area.selected .handle-e')",
+    );
+    for (const [label, hasMask] of [
+      ['Above photos', false],
+      ['Behind photos', true],
+    ]) {
+      if (hasMask) {
+        window.setContentSize(960, 720);
+        await until('innerWidth === 960 && innerHeight === 720');
+      }
+      await selectLayer(label);
+      for (const view of [2, 1]) {
+        await evaluate(
+          `document.querySelector('.template-view-tabs button:nth-child(${view})').click()`,
+        );
+        await until(
+          `document.querySelector('.template-canvas').classList.contains('is-preview') === ${view === 2}`,
+        );
+        assert.equal(
+          await evaluate(
+            "document.querySelector('.template-composition [data-layer=frame]').hasAttribute('mask')",
+          ),
+          hasMask,
+        );
+        await dragResize();
+      }
+    }
+    window.setContentSize(...studioSize);
+    await until(
+      `innerWidth === ${studioSize[0]} && innerHeight === ${studioSize[1]}`,
+    );
+    contents.debugger.attach('1.3');
+    await contents.debugger.sendCommand('Emulation.setFocusEmulationEnabled', {
+      enabled: true,
+    });
+    assert.deepEqual(
+      await evaluate(`(() => {
+        const input = document.querySelector('input[aria-label="Tilt"]');
+        input.focus();
+        const field = getComputedStyle(input.closest('.number-input'));
+        return [getComputedStyle(input).outlineStyle, field.outlineStyle, field.outlineOffset, field.boxShadow];
+      })()`),
+      ['none', 'solid', '-2px', 'none'],
+      'Tilt displays a single outline around its numeric field',
     );
     for (const theme of ['light', 'dark']) {
       await evaluate(`document.documentElement.dataset.theme = '${theme}'`);
@@ -339,9 +491,7 @@ app.whenReady().then(async () => {
     await until(
       "!document.querySelector('.template-photo-area.selected') && !document.querySelector('.template-tilt-stepper')",
     );
-    await evaluate(
-      "document.querySelector('.template-quick-layouts button').click()",
-    );
+    await addMissingAreas();
     await until(
       "!document.querySelector('.template-dialog-footer .primary-button').disabled",
     );
@@ -479,9 +629,7 @@ app.whenReady().then(async () => {
       ),
       true,
     );
-    await evaluate(
-      "document.querySelector('.template-quick-layouts button').click()",
-    );
+    await addMissingAreas();
     await evaluate(
       "document.querySelector('.template-dialog-footer .primary-button').click()",
     );

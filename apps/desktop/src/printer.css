@@ -210,6 +210,10 @@ body:has(.printer-dialog[open]) {
   font-size: 11px;
   line-height: 1.6;
 }
+.strip-print > .strip-print-size {
+  color: var(--ink);
+  font-weight: 600;
+}
 .strip-print-actions {
   display: flex;
   justify-content: flex-end;

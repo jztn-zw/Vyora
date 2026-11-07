@@ -57,11 +57,11 @@ export class PaperService {
           'Paper recovery could not be saved. Sheet printing is disabled; preserve the paper records for recovery.';
       }
   }
-  private change(action: (draft: PaperData) => void) {
+  private change(action: (draft: PaperData) => void | Promise<void>) {
     const operation = this.tail.then(async () => {
       if (this.issue) throw new PrintError(this.issue);
       const draft = structuredClone(this.data);
-      action(draft);
+      await action(draft);
       validatePaperData(draft);
       try {
         await this.store.write(draft);
@@ -111,7 +111,7 @@ export class PaperService {
       v.copies > 10
     )
       throw new PrintError('Choose 1–10 copies of a saved strip.');
-    await this.change((d) => {
+    await this.change(async (d) => {
       const previous = d.adds.find((a) => a.id === v.requestId);
       if (previous) {
         if (previous.stripId !== v.id || previous.copies !== v.copies)
@@ -123,8 +123,10 @@ export class PaperService {
         throw new PrintError(
           'The print queue is full (100 strips). Print or remove some queued strips first.',
         );
+      const size = await this.printers.measureSheetPhoto(v.id);
+      this.assertStrip(v.id);
       for (let i = 0; i < v.copies; i++)
-        d.queue.push({ id: randomUUID(), stripId: v.id });
+        d.queue.push({ id: randomUUID(), stripId: v.id, size });
       d.adds.push({ id: v.requestId, stripId: v.id, copies: v.copies });
       if (d.adds.length > 100) d.adds.shift();
     });
@@ -259,7 +261,7 @@ export class PaperService {
       const placements = arrangePaper(p, d.queue);
       if (!placements.length)
         throw new PrintError(
-          'No queued 2 × 6-inch strips fit in this paper’s remaining printable area.',
+          'No queued photos fit in this paper’s remaining printable area.',
         );
       const batch: SheetBatch = {
         id: v.requestId,

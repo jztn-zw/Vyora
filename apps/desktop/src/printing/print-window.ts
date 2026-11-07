@@ -104,7 +104,7 @@ export function submitPrintWindow(
               finish(
                 new PrintError(
                   reason === 'Invalid printer settings'
-                    ? 'The printer rejected these paper settings. Check its driver and the selected strip layout.'
+                    ? 'The printer rejected these paper settings. Check its driver and the selected paper size.'
                     : reason === 'Print job canceled'
                       ? 'The print job was canceled.'
                       : 'Windows could not submit this print job. Check the printer and its print queue before trying again.',

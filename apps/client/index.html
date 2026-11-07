@@ -11,22 +11,34 @@
       content="VYORA is a Windows photo booth for capturing, retaking, saving, and printing custom photo strips."
     />
     <title>VYORA</title>
+    <style>
+      @media (prefers-reduced-motion: no-preference) {
+        @view-transition {
+          navigation: auto;
+        }
+      }
+    </style>
     <script>
       window.addEventListener('pagereveal', (event) => {
-        if (!event.viewTransition) return;
+        const transition = event.viewTransition;
+        if (!transition) return;
+
+        const root = document.documentElement;
+        transition.ready.catch(() => root.removeAttribute('data-native-transition'));
 
         // A cold navigation can reach its first paint before React has mounted.
         if (!document.querySelector('#root main')) {
-          event.viewTransition.skipTransition();
+          transition.skipTransition();
           return;
         }
 
-        document.documentElement.setAttribute('data-native-transition', '');
+        root.setAttribute('data-native-transition', '');
       });
     </script>
+    <link rel="stylesheet" href="/src/style.css" />
+    <script type="module" src="/src/main.tsx" blocking="render"></script>
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

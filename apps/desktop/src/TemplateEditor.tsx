@@ -14,7 +14,6 @@ import type {
 import type { PhotoSlot, StripTemplate } from '@vyora/shared';
 import {
   detectPhotoSlots,
-  evenlySpacedSlots,
   adjustPhotoSlot,
   centerPhotoSlots,
   pastePhotoArea,
@@ -27,7 +26,6 @@ import {
 } from './template-layout';
 import type { PhotoAreaHandle } from './template-layout';
 import { FramePreview } from './FramePreview';
-import { PhotoPlaceholder } from './PhotoPlaceholder';
 import { EditorNumberField } from './EditorNumberField';
 import { createFrameUpdates } from './editor-frame-updates';
 import './template-editor.css';
@@ -407,9 +405,11 @@ export function TemplateEditor({
       viewport.current?.scrollTo({ left: 0, top: 0 });
       setPreview(false);
       setNotice(
-        loaded.detected.detected
-          ? `${loaded.detected.slots.length} photo areas detected. Check their edges and order before saving.`
-          : 'No clear photo areas detected. Draw them on the image, or start with an evenly spaced layout.',
+        loaded.detected.excessOpenings
+          ? `Found ${loaded.detected.excessOpenings} possible photo openings. Each strip uses 4 photos. Mark the four you want to use, or choose artwork with four openings.`
+          : loaded.detected.detected
+            ? `${loaded.detected.slots.length} photo areas detected. Check their edges and order before saving.`
+            : 'No clear photo areas detected. Draw four areas on the image.',
       );
     } catch (cause) {
       setError(
@@ -459,7 +459,6 @@ export function TemplateEditor({
     event.stopPropagation();
     if (
       !draft ||
-      preview ||
       tool !== 'edit' ||
       saving ||
       busy ||
@@ -848,7 +847,6 @@ export function TemplateEditor({
           !command &&
           !event.altKey &&
           !editingText &&
-          !preview &&
           (event.key === '[' || event.key === ']')
         ) {
           event.preventDefault();
@@ -919,13 +917,10 @@ export function TemplateEditor({
             if (key === 'f') fitView();
             else if (key === 'h') setTool('hand');
             else if (key === 'r') startDrawing();
-            else if (key === 'v') {
-              setTool('edit');
-              setPreview(false);
-            } else if (draft.slots[area]) {
+            else if (key === 'v') setTool('edit');
+            else if (draft.slots[area]) {
               setSelected(area);
               setTool('edit');
-              setPreview(false);
               viewport.current?.focus({ preventScroll: true });
             }
             return;
@@ -935,7 +930,6 @@ export function TemplateEditor({
           !command &&
           !event.altKey &&
           !editingText &&
-          !preview &&
           tool === 'edit' &&
           selected >= 0 &&
           !busy &&
@@ -1104,7 +1098,10 @@ export function TemplateEditor({
                   <button
                     aria-pressed={preview}
                     disabled={!canPreview}
-                    onClick={() => setPreview(true)}
+                    onClick={() => {
+                      setTool('edit');
+                      setPreview(true);
+                    }}
                   >
                     Preview
                   </button>
@@ -1121,12 +1118,9 @@ export function TemplateEditor({
                 >
                   <button
                     type="button"
-                    aria-pressed={tool === 'edit' && !preview}
+                    aria-pressed={tool === 'edit'}
                     disabled={busy || saving}
-                    onClick={() => {
-                      setTool('edit');
-                      setPreview(false);
-                    }}
+                    onClick={() => setTool('edit')}
                     title="Select, move and resize photo areas (V)"
                     aria-label="Select photo areas"
                     className="template-mode-icon"
@@ -1325,136 +1319,104 @@ export function TemplateEditor({
                     }}
                     onLostPointerCapture={cancelGesture}
                   >
-                    {preview ? (
-                      <div className="template-sample-preview">
-                        <FramePreview
-                          template={{ ...draft, id: 'editor-preview' }}
-                        />
-                      </div>
-                    ) : (
-                      <img
-                        draggable={false}
-                        src={draft.frame}
-                        alt="Uploaded frame: draw a rectangle for each photo"
+                    <div className="template-composition">
+                      <FramePreview
+                        template={{ ...draft, id: 'editor-preview' }}
                       />
-                    )}
-                    {!preview && (
+                    </div>
+                    {draft.slots.map((slot, index) => (
                       <div
-                        className="template-photo-fill-layer"
-                        aria-hidden="true"
+                        key={index}
+                        className={`template-photo-area ${selected === index ? 'selected' : ''}`}
+                        style={{
+                          left: `${slot.x * 100}%`,
+                          top: `${slot.y * 100}%`,
+                          width: `${slot.width * 100}%`,
+                          height: `${slot.height * 100}%`,
+                          transform: `rotate(${slot.rotation ?? 0}deg)`,
+                          transformOrigin: 'center',
+                        }}
                       >
-                        {draft.slots.map((slot, index) => (
-                          <div
-                            key={index}
-                            className="template-photo-fill"
-                            style={{
-                              left: `${slot.x * 100}%`,
-                              top: `${slot.y * 100}%`,
-                              width: `${slot.width * 100}%`,
-                              height: `${slot.height * 100}%`,
-                              transform: `rotate(${slot.rotation ?? 0}deg)`,
-                              transformOrigin: 'center',
-                            }}
-                          >
-                            <PhotoPlaceholder index={index} />
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {!preview &&
-                      draft.slots.map((slot, index) => (
-                        <div
-                          key={index}
-                          className={`template-photo-area ${selected === index ? 'selected' : ''}`}
-                          style={{
-                            left: `${slot.x * 100}%`,
-                            top: `${slot.y * 100}%`,
-                            width: `${slot.width * 100}%`,
-                            height: `${slot.height * 100}%`,
-                            transform: `rotate(${slot.rotation ?? 0}deg)`,
-                            transformOrigin: 'center',
-                          }}
-                        >
+                        <button
+                          type="button"
+                          className="template-photo-move"
+                          aria-label={`Move photo area ${index + 1}. Use arrow keys; hold Shift for larger steps.`}
+                          aria-pressed={selected === index}
+                          disabled={saving || busy}
+                          onPointerDown={(event) =>
+                            beginAdjustment(event, index, 'move')
+                          }
+                          onClick={() => setSelected(index)}
+                          onKeyDown={(event) =>
+                            adjustWithKeyboard(event, index, 'move')
+                          }
+                        />
+                        <b>{index + 1}</b>
+                        {selected === index && (
                           <button
                             type="button"
-                            className="template-photo-move"
-                            aria-label={`Move photo area ${index + 1}. Use arrow keys; hold Shift for larger steps.`}
-                            aria-pressed={selected === index}
-                            disabled={saving || busy}
+                            className="template-rotate-handle"
+                            aria-label={`Rotate photo ${index + 1}. Use left and right arrow keys; Shift rotates in 15 degree steps.`}
+                            title="Drag to tilt · Hold Shift to snap to 15°"
+                            disabled={busy || saving}
                             onPointerDown={(event) =>
-                              beginAdjustment(event, index, 'move')
+                              beginAdjustment(event, index, 'rotate')
                             }
-                            onClick={() => setSelected(index)}
-                            onKeyDown={(event) =>
-                              adjustWithKeyboard(event, index, 'move')
-                            }
-                          />
-                          <b>{index + 1}</b>
-                          {selected === index && (
-                            <button
-                              type="button"
-                              className="template-rotate-handle"
-                              aria-label={`Rotate photo ${index + 1}. Use left and right arrow keys; Shift rotates in 15 degree steps.`}
-                              title="Drag to tilt · Hold Shift to snap to 15°"
-                              disabled={busy || saving}
-                              onPointerDown={(event) =>
-                                beginAdjustment(event, index, 'rotate')
+                            onKeyDown={(event) => {
+                              if (
+                                [
+                                  'ArrowLeft',
+                                  'ArrowRight',
+                                  'ArrowUp',
+                                  'ArrowDown',
+                                ].includes(event.key)
+                              ) {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                tiltArea(
+                                  (slot.rotation ?? 0) +
+                                    (event.key === 'ArrowLeft' ||
+                                    event.key === 'ArrowDown'
+                                      ? -1
+                                      : 1) *
+                                      (event.shiftKey ? 15 : 1),
+                                );
                               }
-                              onKeyDown={(event) => {
-                                if (
-                                  [
-                                    'ArrowLeft',
-                                    'ArrowRight',
-                                    'ArrowUp',
-                                    'ArrowDown',
-                                  ].includes(event.key)
-                                ) {
-                                  event.preventDefault();
-                                  event.stopPropagation();
-                                  tiltArea(
-                                    (slot.rotation ?? 0) +
-                                      (event.key === 'ArrowLeft' ||
-                                      event.key === 'ArrowDown'
-                                        ? -1
-                                        : 1) *
-                                        (event.shiftKey ? 15 : 1),
-                                  );
-                                }
-                              }}
+                            }}
+                          >
+                            <svg
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.7"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              aria-hidden="true"
                             >
-                              <svg
-                                width="14"
-                                height="14"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="1.7"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                aria-hidden="true"
-                              >
-                                <path d="M20 6v5h-5M20 11a8 8 0 1 0-2 7" />
-                              </svg>
-                            </button>
-                          )}
-                          {selected === index &&
-                            resizeHandles.map(({ handle, label }) => (
-                              <button
-                                key={handle}
-                                type="button"
-                                className={`template-resize-handle handle-${handle}`}
-                                aria-label={`Resize photo ${index + 1}: ${label}. Use arrow keys; hold Shift for larger steps.`}
-                                disabled={saving || busy}
-                                onPointerDown={(event) =>
-                                  beginAdjustment(event, index, handle)
-                                }
-                                onKeyDown={(event) =>
-                                  adjustWithKeyboard(event, index, handle)
-                                }
-                              />
-                            ))}
-                        </div>
-                      ))}
+                              <path d="M20 6v5h-5M20 11a8 8 0 1 0-2 7" />
+                            </svg>
+                          </button>
+                        )}
+                        {selected === index &&
+                          resizeHandles.map(({ handle, label }) => (
+                            <button
+                              key={handle}
+                              type="button"
+                              className={`template-resize-handle handle-${handle}`}
+                              aria-label={`Resize photo ${index + 1}: ${label}. Use arrow keys; hold Shift for larger steps.`}
+                              disabled={saving || busy}
+                              onPointerDown={(event) =>
+                                beginAdjustment(event, index, handle)
+                              }
+                              onKeyDown={(event) =>
+                                adjustWithKeyboard(event, index, handle)
+                              }
+                            />
+                          ))}
+                      </div>
+                    ))}
                     {!preview && drag && (
                       <span
                         className="template-photo-area drawing"
@@ -1470,13 +1432,13 @@ export function TemplateEditor({
                 </div>
               </div>
               <p className="template-draw-hint">
-                {preview
-                  ? 'Preview only. Your captured photos will replace these samples.'
-                  : tool === 'draw'
-                    ? 'Drag a rectangle over a photo opening. Mark 4 photo areas for each frame.'
-                    : selected < 0
-                      ? 'Select an area to move it. Use Draw area to add another photo opening.'
-                      : `Photo ${selected + 1} selected. Drag to move; drag a corner to resize. Backspace or Delete removes it.`}
+                {tool === 'draw'
+                  ? 'Drag a rectangle over a photo opening. Mark 4 photo areas for each frame.'
+                  : selected >= 0
+                    ? `Photo ${selected + 1} selected. Drag to move or use the handles to resize.`
+                    : preview
+                      ? 'Select a photo area to show its resize handles.'
+                      : 'Select an area to move it. Use Draw area to add another photo opening.'}
               </p>
             </section>
             <aside className="template-controls">
@@ -1578,26 +1540,6 @@ export function TemplateEditor({
                       </div>
                     </fieldset>
                   )}
-                  <fieldset disabled={saving || busy || !!history.pending}>
-                    <legend>Quick layouts</legend>
-                    <div className="template-quick-layouts">
-                      <button
-                        onClick={() => {
-                          setDraft({
-                            ...draft,
-                            slots: evenlySpacedSlots(4),
-                          });
-                          setSelected(-1);
-                          setPreview(false);
-                          setNotice(
-                            'Starter layout applied. Adjust each area to match your artwork.',
-                          );
-                        }}
-                      >
-                        Set 4 photo areas
-                      </button>
-                    </div>
-                  </fieldset>
                   <div className="template-select-field">
                     <span>Frame position</span>
                     <StudioSelect

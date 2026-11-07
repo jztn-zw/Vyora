@@ -10,12 +10,15 @@ has paper, or supports a particular cut size.
    focus to VYORA, or clicking **Refresh**.
 2. Select your printer. VYORA does not silently select a default printer.
 3. Choose **Photo printer** for immediate printing, then its paper layout:
-   - **Two strips:** 4 × 6-inch sheet containing two identical 2 × 6-inch strips.
-   - **One strip:** 2 × 6-inch paper, requiring a compatible printer/driver.
+   - **Auto fit:** 4 × 6-inch paper. Narrow portrait strips (width up to 40%
+     of their height) print two copies per sheet. Wider frames print one copy
+     per sheet, with landscape artwork rotated to fit the paper.
+   - **Narrow paper:** one copy fitted to 2 × 6-inch paper, requiring a
+     compatible printer and driver.
      Choose **Full sheets** for long bond, A4, Letter, or supported measured pieces;
      use the sheet workflow below instead of sheets per print.
-4. Choose 1–10 **sheets per print** and save the settings. The two-strip layout
-   produces twice that many strips.
+4. Choose 1–10 **sheets per print** and save the settings. The saved photo
+   preview shows the fitted size and number of copies per sheet.
 5. Match the paper size and desired borderless/cutting mode in the manufacturer's
    Windows driver. Run one test print and measure the result before event use.
 
@@ -27,14 +30,14 @@ unreadable file requires explicit setup again.
 ## Printing
 
 Capture, review/retake, then **Confirm & save strip**. The saved preview opens
-with **Print strip**. Library previews offer the same action. Legacy sessions
+with **Print photo**. Library previews offer the same action. Legacy sessions
 must be saved as a finished strip before printing.
 
 The print uses the saved, full-resolution JPEG, including the selected frame and
-VYORA artwork. Each complete design fits within a 2 × 6-inch area without cropping
-or stretching. Designs with a different aspect ratio have white space around
-them. The original JPEG is unchanged. The printer receives a single-sided page
-without browser headers or footers and with the selected sheet count.
+VYORA artwork. The complete design fits in the assigned space, with white space
+where the design and paper have different proportions. For example, Auto fit
+prints a square as 4 × 4 inches on a 4 × 6-inch sheet. The printer receives a
+single-sided page with the selected sheet count.
 
 No job is sent while opening settings, saving photos, or viewing strips. After a
 successful submission, **Print another** explicitly submits another job. Closing
@@ -54,10 +57,11 @@ the preview does not cancel a job already sent to Windows.
    physical edges. Printed and spoiled positions are remembered automatically
    after you confirm the outcome. Manual marks can be undone; recorded printed
    positions cannot be cleared. Marks and preview labels do not print.
-5. The preview arranges as many queued strips as its placement search can fit,
-   including rotated strips. Each complete image stays inside a **2 × 6-inch**
-   box. Remaining entries stay queued. Optional cutting guides sit outside the
-   strips and require at least 2 mm of gap and margin.
+5. The preview arranges photos at their fitted sizes, including rotated photos.
+   New entries fit into a 2 × 6-inch box for narrow strips or a 4 × 6-inch box
+   for other designs, using their original proportions. Existing queued entries
+   retain their 2 × 6-inch boxes. Entries that do not fit stay queued. Optional
+   cutting guides sit outside the photos and require at least 2 mm of gap and margin.
 6. Load that exact physical sheet in the shown direction, confirm the checkbox,
    and choose **Print sheet**. You may print a partly filled layout; VYORA does
    not automatically send a job when the sheet becomes full.
@@ -66,8 +70,8 @@ the preview does not cancel a job already sent to Windows.
    printed** keeps the entries and frees the positions. **Areas spoiled** keeps
    entries for reprinting and marks all reserved positions used conservatively.
 
-The physical page is sent at the selected sheet dimensions with fixed-size
-strip boxes. It does not enlarge a strip to fill long bond paper. Match the
+The physical page is sent at the selected sheet dimensions with the sizes shown
+in the arrangement preview. Match the
 driver's paper size, orientation, actual-size scaling and printable margins.
 Print one test, measure the boxes, and adjust the driver/margins before an event.
 Drivers can impose scaling or reject media sizes; the app cannot guarantee a

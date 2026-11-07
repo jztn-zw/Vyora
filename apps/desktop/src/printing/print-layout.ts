@@ -3,6 +3,30 @@ import type { PrinterSettings, CustomPaperProfile } from '@vyora/shared';
 export class PrintError extends Error {}
 export class PrintUncertainError extends PrintError {}
 
+export type ImageSize = { width: number; height: number };
+export const STRIP_WIDTH = 50800;
+export const STRIP_HEIGHT = 152400;
+
+function isNarrowStrip({ width, height }: ImageSize) {
+  return width / height <= 0.4;
+}
+
+function fitSize(image: ImageSize, box: ImageSize): ImageSize {
+  const scale = Math.min(box.width / image.width, box.height / image.height);
+  return {
+    width: Math.max(1, Math.round(image.width * scale)),
+    height: Math.max(1, Math.round(image.height * scale)),
+  };
+}
+
+export function formatPrintSize({ width, height }: ImageSize) {
+  return `${Number((width / 25400).toFixed(2))} × ${Number((height / 25400).toFixed(2))} in`;
+}
+
+export function sheetPhotoSize(image: ImageSize) {
+  return printGeometry('double-strip', image).photoSize;
+}
+
 export function validateCustomProfile(
   input: unknown,
   deviceName: string,
@@ -67,26 +91,46 @@ export function validatePrinterSettings(input: unknown): PrinterSettings {
   };
 }
 
-export function printGeometry(layout: PrinterSettings['layout']) {
+export function printGeometry(
+  layout: PrinterSettings['layout'],
+  image?: ImageSize,
+) {
   if (layout !== 'single-strip' && layout !== 'double-strip')
     throw new PrintError('Invalid print layout.');
-  const columns = layout === 'double-strip' ? 2 : 1;
+  const fullPhoto = layout === 'double-strip' && image && !isNarrowStrip(image);
+  const columns = layout === 'double-strip' && !fullPhoto ? 2 : 1;
+  const width = layout === 'double-strip' ? 2 * STRIP_WIDTH : STRIP_WIDTH;
+  const rotated = !!fullPhoto && image.width > image.height;
+  const slotWidth = width / columns;
+  const box = rotated
+    ? { width: STRIP_HEIGHT, height: slotWidth }
+    : { width: slotWidth, height: STRIP_HEIGHT };
   return {
     columns,
-    widthMm: 50.8 * columns,
-    heightMm: 152.4,
-    pageSize: { width: 50800 * columns, height: 152400 },
+    widthMm: width / 1000,
+    heightMm: STRIP_HEIGHT / 1000,
+    pageSize: { width, height: STRIP_HEIGHT },
+    slotWidth,
+    rotated,
+    photoSize: image ? fitSize(image, box) : box,
   };
 }
 
-export function printDocument(jpeg: string, settings: PrinterSettings) {
+export function printDocument(
+  jpeg: string,
+  settings: PrinterSettings,
+  image?: ImageSize,
+) {
   validatePrinterSettings(settings);
   if (
     !/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(jpeg) ||
     jpeg.length > 28 * 1024 * 1024
   )
     throw new PrintError('The saved strip could not be prepared for printing.');
-  const { columns, widthMm, heightMm } = printGeometry(settings.layout);
+  const { columns, widthMm, heightMm, slotWidth, rotated } = printGeometry(
+    settings.layout,
+    image,
+  );
   return `<!doctype html><html><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'none'; base-uri 'none'; form-action 'none'">
 <title>VYORA photo strip</title><style>
@@ -94,10 +138,11 @@ export function printDocument(jpeg: string, settings: PrinterSettings) {
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; width: ${widthMm}mm; height: ${heightMm}mm; overflow: hidden; background: white; }
 .sheet { display: flex; width: ${widthMm}mm; height: ${heightMm}mm; break-inside: avoid; }
-.strip { width: 50.8mm; height: ${heightMm}mm; flex: none; }
+.strip { position: relative; width: ${slotWidth / 1000}mm; height: ${heightMm}mm; flex: none; }
 img { display: block; width: 100%; height: 100%; object-fit: contain; }
+img.rotated { position: absolute; width: ${heightMm}mm; height: ${slotWidth / 1000}mm; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(90deg); }
 @media print { body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
-</style></head><body><main class="sheet">${Array.from({ length: columns }, () => `<div class="strip"><img alt="VYORA photo strip" src="${jpeg}"></div>`).join('')}</main></body></html>`;
+</style></head><body><main class="sheet">${Array.from({ length: columns }, () => `<div class="strip"><img${rotated ? ' class="rotated"' : ''} alt="VYORA photo" src="${jpeg}"></div>`).join('')}</main></body></html>`;
 }
 
 export function validatePrintRequest(input: unknown) {

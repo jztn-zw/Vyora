@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { GuestDisplayPanel } from './GuestDisplayPanel';
-import { GuestBoothControls } from './GuestBoothControls';
+import { GuestBoothControls, GuestDisplayIcon } from './GuestBoothControls';
 import { useGuestController } from './use-guest-controller';
 import { version as appVersion } from '../package.json';
 import type {
@@ -15,10 +15,11 @@ import type {
   StripTemplateSummary,
   PhotoEffect,
 } from '@vyora/shared';
-import { isAppTheme, saveTheme, themes } from './theme';
+import { DEFAULT_THEME, isAppTheme, saveTheme, themes } from './theme';
 import { renderStripJpeg, stripPreviewUrl } from './photo-strip';
 import boothFriends from './assets/booth-friends.png';
 import { TetheredCameraController } from './tethered-camera-controller';
+import { createCameraFrameCropper } from './camera-frame';
 import { CameraCaptureSettings } from './CameraCaptureSettings';
 import type { CaptureEquipment } from './CameraCaptureSettings';
 import './style.css';
@@ -192,55 +193,61 @@ const themeDescriptions = {
   vyora: 'Our signature purple & pink',
 };
 
-function ThemePicker({
+function AppearanceDialog({
   theme,
   onChange,
+  onClose,
 }: {
   theme: AppTheme;
   onChange: (value: AppTheme) => void;
+  onClose: () => void;
 }) {
-  const menu = useRef<HTMLDetailsElement>(null);
+  const dialog = useRef<HTMLDialogElement>(null);
   useEffect(() => {
-    const close = (event: PointerEvent) => {
-      if (menu.current && !menu.current.contains(event.target as Node))
-        menu.current.open = false;
-    };
-    document.addEventListener('pointerdown', close);
-    return () => document.removeEventListener('pointerdown', close);
+    const element = dialog.current;
+    element?.showModal();
+    return () => element?.close();
   }, []);
+
+  function close() {
+    dialog.current?.close();
+    onClose();
+  }
+
   return (
-    <details
-      className="theme-picker"
-      name="topbar-menus"
-      ref={menu}
-      onKeyDown={(event) => {
-        if (event.key === 'Escape' && menu.current) {
-          menu.current.open = false;
-          menu.current.querySelector('summary')?.focus();
-        }
+    <dialog
+      className="appearance-dialog"
+      ref={dialog}
+      aria-labelledby="appearance-title"
+      aria-describedby="appearance-description"
+      onCancel={(event) => {
+        event.preventDefault();
+        close();
       }}
     >
-      <summary
-        aria-label={`Appearance: ${themeNames[theme]}`}
-        title="Change appearance"
-      >
-        <span className={`theme-dot theme-dot-${theme}`} aria-hidden="true" />
-        <span>{themeNames[theme]}</span>
-        <Icon name="chevron" size={13} />
-      </summary>
-      <div className="theme-menu" role="group" aria-label="Appearance">
-        <p>MAKE YOURSELF AT HOME</p>
+      <header className="appearance-header">
+        <div>
+          <h2 id="appearance-title">Appearance</h2>
+          <p id="appearance-description">
+            Choose a theme for Studio and connected guest displays.
+          </p>
+        </div>
+        <button
+          type="button"
+          className="outline-button"
+          onClick={close}
+          autoFocus
+        >
+          Done
+        </button>
+      </header>
+      <div className="theme-menu" role="group" aria-label="Themes">
         {themes.map((value) => (
           <button
             key={value}
+            type="button"
             aria-pressed={theme === value}
-            onClick={() => {
-              onChange(value);
-              if (menu.current) {
-                menu.current.open = false;
-                menu.current.querySelector('summary')?.focus();
-              }
-            }}
+            onClick={() => onChange(value)}
           >
             <span
               className={`theme-sample theme-sample-${value}`}
@@ -261,20 +268,30 @@ function ThemePicker({
           Your choice is remembered on this device.
         </span>
       </div>
-    </details>
+    </dialog>
   );
 }
 
 function StudioTools({
   running,
+  theme,
+  cameraSettingsDisabled,
+  onCameraSettings,
+  onGuestDisplays,
   onPrinter,
   onPaper,
+  onAppearance,
   onFolder,
   onNotice,
 }: {
   running: boolean;
+  theme: AppTheme;
+  cameraSettingsDisabled: boolean;
+  onCameraSettings: () => void;
+  onGuestDisplays: () => void;
   onPrinter: () => void;
   onPaper: () => void;
+  onAppearance: () => void;
   onFolder: () => void;
   onNotice: () => void;
 }) {
@@ -319,6 +336,29 @@ function StudioTools({
         <p>Studio tools</p>
         <button
           type="button"
+          aria-haspopup="dialog"
+          disabled={cameraSettingsDisabled}
+          onClick={() => choose(onCameraSettings)}
+        >
+          <Icon name="camera" size={19} />
+          <span>
+            <strong>Capture & lighting</strong>
+            <small>Camera mode, connector port, and flash timing</small>
+          </span>
+        </button>
+        <button
+          type="button"
+          aria-haspopup="dialog"
+          onClick={() => choose(onGuestDisplays)}
+        >
+          <GuestDisplayIcon />
+          <span>
+            <strong>Guest displays</strong>
+            <small>Connect a monitor or pair a guest device</small>
+          </span>
+        </button>
+        <button
+          type="button"
           disabled={running}
           onClick={() => choose(onPrinter)}
         >
@@ -340,6 +380,17 @@ function StudioTools({
           </span>
         </button>
         <div className="studio-tools-divider" />
+        <button
+          type="button"
+          aria-haspopup="dialog"
+          onClick={() => choose(onAppearance)}
+        >
+          <span className={`theme-dot theme-dot-${theme}`} aria-hidden="true" />
+          <span>
+            <strong>Appearance</strong>
+            <small>{themeNames[theme]} theme selected</small>
+          </span>
+        </button>
         <button type="button" onClick={() => choose(onFolder)}>
           <Icon name="folder" size={19} />
           <span>
@@ -438,7 +489,7 @@ function StripCard({
 function App() {
   const [theme, setTheme] = useState<AppTheme>(() => {
     const initial = document.documentElement.dataset.theme;
-    return isAppTheme(initial) ? initial : 'light';
+    return isAppTheme(initial) ? initial : DEFAULT_THEME;
   });
   const video = useRef<HTMLVideoElement>(null);
   const session = useRef<AbortController | null>(null);
@@ -517,6 +568,7 @@ function App() {
   const [guestDone, setGuestDone] = useState(false);
   const [confirmExitBooth, setConfirmExitBooth] = useState(false);
   const [showUsageNotice, setShowUsageNotice] = useState(false);
+  const [showAppearance, setShowAppearance] = useState(false);
   const [kioskStage, setKioskStage] = useState<'design' | 'capture' | 'done'>(
     'design',
   );
@@ -569,12 +621,15 @@ function App() {
     'id' | 'name'
   > | null>(null);
   const [showCameraHelp, setShowCameraHelp] = useState(false);
+  const [showCameraSettings, setShowCameraSettings] = useState(false);
   const [showPrinterSettings, setShowPrinterSettings] = useState(false);
   const [showPaperManager, setShowPaperManager] = useState(false);
   const [printerRevision, setPrinterRevision] = useState(0);
   const [viewingStrip, setViewingStrip] = useState<StripRecord | null>(null);
   const [deletingStrip, setDeletingStrip] = useState<StripRecord | null>(null);
   const templateRequest = useRef(0);
+  const cameraSettingsDisabled =
+    running || connecting || !!pendingStrip || !!exportingStrip;
   const visibleStrips = [
     ...(pendingStrip ? [pendingStrip] : []),
     ...(library?.strips ?? []),
@@ -605,6 +660,11 @@ function App() {
   const olderCustomFrames = templates.filter(
     (template) => !template.builtIn && template.slots.length !== shots,
   );
+  const studioFramesLocked =
+    running || !!pendingStrip || loadingTemplate || !!exportingStrip;
+  const activeFrameChoice = selectedTemplate
+    ? frameChoiceId(selectedTemplate)
+    : '';
 
   async function chooseTemplate(id: string) {
     if (session.current || pendingStrip) return false;
@@ -883,6 +943,8 @@ function App() {
     // full-resolution canvas per shot and waiting for garbage collection.
     const canvas = document.createElement('canvas');
     try {
+      const cropFrame =
+        camera.source === 'tethered' ? null : createCameraFrameCropper();
       for (let shot = 0; shot < targets.length; shot++) {
         const target = targets[shot];
         setActivePhoto(target.index + 1);
@@ -916,7 +978,8 @@ function App() {
               new Blob([bytes], { type: 'image/jpeg' }),
             );
           }
-          const width = native?.width ?? element.videoWidth;
+          const crop = cropFrame?.(element);
+          const width = crop?.width ?? native?.width ?? element.videoWidth;
           const height = native?.height ?? element.videoHeight;
           if (canvas.width !== width) canvas.width = width;
           if (canvas.height !== height) canvas.height = height;
@@ -928,7 +991,17 @@ function App() {
             context.translate(canvas.width, 0);
             context.scale(-1, 1);
           }
-          context.drawImage(native ?? element, 0, 0);
+          context.drawImage(
+            native ?? element,
+            crop?.x ?? 0,
+            0,
+            width,
+            height,
+            0,
+            0,
+            width,
+            height,
+          );
           context.restore();
         } finally {
           native?.close();
@@ -1435,7 +1508,6 @@ function App() {
                             ? 'Strip saved · ready for the next group'
                             : 'Ready for your next moment.'
                   }
-                  onDisplays={() => guest.setOpen(true)}
                   onSetup={openBoothSetup}
                   onPause={() => {
                     if (running) session.current?.abort();
@@ -1444,11 +1516,15 @@ function App() {
                   onNext={finishKioskSession}
                 />
               )}
-              <ThemePicker theme={theme} onChange={setTheme} />
               <StudioTools
                 running={running}
+                theme={theme}
+                cameraSettingsDisabled={cameraSettingsDisabled}
+                onCameraSettings={() => setShowCameraSettings(true)}
+                onGuestDisplays={() => guest.setOpen(true)}
                 onPrinter={() => setShowPrinterSettings(true)}
                 onPaper={() => setShowPaperManager(true)}
+                onAppearance={() => setShowAppearance(true)}
                 onFolder={() => void openFolder()}
                 onNotice={() => setShowUsageNotice(true)}
               />
@@ -2078,248 +2154,271 @@ function App() {
                 <Icon name="grid" size={15} /> Frame
               </button>
             </div>
-            <div
-              id="capture-settings"
-              className="settings-content"
-              hidden={settingsView !== 'capture'}
-            >
-              <div className="field-label" id="camera-label">
-                <span>01</span> Camera source
-                <button
-                  className="refresh-cameras"
-                  aria-label="Refresh cameras"
-                  disabled={running || connecting || scanning}
-                  onClick={() => void refreshCameras()}
-                >
-                  <Icon name="refresh" size={13} />
-                  {scanning ? 'Finding…' : 'Refresh'}
-                </button>
-              </div>
-              <details
-                className="camera-picker"
-                ref={cameraPicker}
-                onKeyDown={(event) => {
-                  if (event.key === 'Escape' && cameraPicker.current) {
-                    cameraPicker.current.open = false;
-                    cameraPicker.current.querySelector('summary')?.focus();
-                  }
-                }}
+            <div className="settings-pages">
+              <div
+                id="capture-settings"
+                className="settings-content"
+                inert={settingsView !== 'capture'}
               >
-                <summary
-                  aria-labelledby="camera-label camera-name"
-                  aria-disabled={running || connecting}
-                  onClick={(event) => {
-                    if (running || connecting) event.preventDefault();
+                <div className="field-label" id="camera-label">
+                  <span>01</span> Camera source
+                  <button
+                    className="refresh-cameras"
+                    aria-label="Refresh cameras"
+                    disabled={running || connecting || scanning}
+                    onClick={() => void refreshCameras()}
+                  >
+                    <Icon name="refresh" size={13} />
+                    {scanning ? 'Finding…' : 'Refresh'}
+                  </button>
+                </div>
+                <details
+                  className="camera-picker"
+                  ref={cameraPicker}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Escape' && cameraPicker.current) {
+                      cameraPicker.current.open = false;
+                      cameraPicker.current.querySelector('summary')?.focus();
+                    }
                   }}
                 >
-                  <span className="device-icon">
-                    <Icon name="camera" size={19} />
-                  </span>
-                  <span className="device-copy">
-                    <strong id="camera-name">
-                      {connecting
-                        ? 'Connecting to camera…'
-                        : ready
-                          ? cameraLabel
-                          : selectedCamera?.label ||
-                            cameraLabel ||
-                            'Choose your camera'}
-                    </strong>
-                    <span>
-                      {ready
-                        ? `Connected${cameraResolution ? ` · ${cameraResolution}` : ''}`
-                        : cameraState.status === 'paused'
-                          ? 'Feed paused · check connection'
-                          : cameraState.status === 'disconnected'
-                            ? 'Disconnected · reconnect to continue'
-                            : devices.length
-                              ? `${devices.length} camera${devices.length === 1 ? '' : 's'} available`
-                              : equipment.source === 'tethered'
-                                ? 'Connect through digiCamControl'
-                                : 'Connect a webcam to get started'}
+                  <summary
+                    aria-labelledby="camera-label camera-name"
+                    aria-disabled={running || connecting}
+                    onClick={(event) => {
+                      if (running || connecting) event.preventDefault();
+                    }}
+                  >
+                    <span className="device-icon">
+                      <Icon name="camera" size={19} />
                     </span>
-                  </span>
-                  <Icon name="chevron" size={15} />
-                </summary>
-                <div
-                  className="camera-options"
-                  role="group"
-                  aria-label="Available cameras"
+                    <span className="device-copy">
+                      <strong id="camera-name">
+                        {connecting
+                          ? 'Connecting to camera…'
+                          : ready
+                            ? cameraLabel
+                            : selectedCamera?.label ||
+                              cameraLabel ||
+                              'Choose your camera'}
+                      </strong>
+                      <span>
+                        {ready
+                          ? `Connected${cameraResolution ? ` · ${cameraResolution}` : ''}`
+                          : cameraState.status === 'paused'
+                            ? 'Feed paused · check connection'
+                            : cameraState.status === 'disconnected'
+                              ? 'Disconnected · reconnect to continue'
+                              : devices.length
+                                ? `${devices.length} camera${devices.length === 1 ? '' : 's'} available`
+                                : equipment.source === 'tethered'
+                                  ? 'Connect through digiCamControl'
+                                  : 'Connect a webcam to get started'}
+                      </span>
+                    </span>
+                    <Icon name="chevron" size={15} />
+                  </summary>
+                  <div
+                    className="camera-options"
+                    role="group"
+                    aria-label="Available cameras"
+                  >
+                    {devices.length ? (
+                      devices.map((device, index) => (
+                        <button
+                          key={device.deviceId || index}
+                          disabled={running || connecting}
+                          aria-pressed={ready && deviceId === device.deviceId}
+                          onClick={() => {
+                            if (cameraPicker.current)
+                              cameraPicker.current.open = false;
+                            void connectCamera(device.deviceId);
+                          }}
+                        >
+                          <Icon name="camera" size={17} />
+                          <span>{device.label || `Camera ${index + 1}`}</span>
+                          {ready && deviceId === device.deviceId && (
+                            <Icon name="check" size={15} />
+                          )}
+                        </button>
+                      ))
+                    ) : (
+                      <p>
+                        {equipment.source === 'tethered'
+                          ? 'Open digiCamControl, then select Enable camera.'
+                          : 'No webcams found. Connect one, then select Refresh.'}
+                      </p>
+                    )}
+                  </div>
+                </details>
+                <button
+                  type="button"
+                  className="camera-help-button"
+                  aria-haspopup="dialog"
+                  disabled={running}
+                  onClick={() => setShowCameraHelp(true)}
                 >
-                  {devices.length ? (
-                    devices.map((device, index) => (
+                  Camera help
+                  <Icon name="help" size={14} />
+                </button>
+                <fieldset disabled={running}>
+                  <legend>
+                    <span>02</span> Countdown
+                  </legend>
+                  <div className="segmented">
+                    {([3, 5, 10] as const).map((value) => (
                       <button
-                        key={device.deviceId || index}
-                        disabled={running || connecting}
-                        aria-pressed={ready && deviceId === device.deviceId}
-                        onClick={() => {
-                          if (cameraPicker.current)
-                            cameraPicker.current.open = false;
-                          void connectCamera(device.deviceId);
-                        }}
+                        key={value}
+                        aria-pressed={timer === value}
+                        className={timer === value ? 'selected' : ''}
+                        onClick={() => setTimer(value)}
                       >
-                        <Icon name="camera" size={17} />
-                        <span>{device.label || `Camera ${index + 1}`}</span>
-                        {ready && deviceId === device.deviceId && (
-                          <Icon name="check" size={15} />
-                        )}
+                        {value}
+                        <span> sec</span>
                       </button>
-                    ))
-                  ) : (
-                    <p>
-                      {equipment.source === 'tethered'
-                        ? 'Open digiCamControl, then select Enable camera.'
-                        : 'No webcams found. Connect one, then select Refresh.'}
-                    </p>
-                  )}
-                </div>
-              </details>
-              <button
-                type="button"
-                className="camera-help-button"
-                aria-haspopup="dialog"
-                disabled={running}
-                onClick={() => setShowCameraHelp(true)}
+                    ))}
+                  </div>
+                </fieldset>
+                <section
+                  className="studio-frame-picker"
+                  aria-labelledby="studio-frames-title"
+                >
+                  <div className="studio-frame-heading">
+                    <h3 id="studio-frames-title">Photo frames</h3>
+                    <span>Scroll left or right</span>
+                  </div>
+                  <FrameCarousel variant="studio">
+                    {[
+                      { id: '', name: 'Doodle No. 01', template: undefined },
+                      ...studioFrameChoices,
+                      ...olderCustomFrames.map((template) => ({
+                        id: template.id,
+                        name: template.name,
+                        template,
+                      })),
+                    ].map(({ id, name, template }) => {
+                      const needsEdit =
+                        !!template && template.slots.length !== shots;
+                      const selected = id === activeFrameChoice;
+                      return (
+                        <button
+                          key={id}
+                          className="studio-frame-card"
+                          type="button"
+                          aria-label={needsEdit ? `${name}, edit to use` : name}
+                          aria-pressed={needsEdit ? undefined : selected}
+                          disabled={studioFramesLocked}
+                          onClick={() => {
+                            if (needsEdit) void editSavedTemplate(id);
+                            else if (!selected) void chooseTemplate(id);
+                          }}
+                        >
+                          <span className="studio-frame-art" aria-hidden="true">
+                            <FramePreview template={template} shots={shots} />
+                            {selected && (
+                              <span className="studio-frame-check">
+                                <Icon name="check" size={12} />
+                              </span>
+                            )}
+                          </span>
+                          <span className="studio-frame-name" title={name}>
+                            {name}
+                          </span>
+                          {needsEdit && <small>Edit to use</small>}
+                        </button>
+                      );
+                    })}
+                  </FrameCarousel>
+                </section>
+              </div>
+              <div
+                id="frame-settings"
+                className="settings-content"
+                inert={settingsView !== 'frame'}
               >
-                Camera help
-                <Icon name="help" size={14} />
-              </button>
-              <CameraCaptureSettings
-                value={equipment}
-                disabled={
-                  running || connecting || !!pendingStrip || !!exportingStrip
-                }
-                onChange={configureEquipment}
-              />
-              <fieldset disabled={running}>
-                <legend>
-                  <span>02</span> Countdown
-                </legend>
-                <div className="segmented">
-                  {([3, 5, 10] as const).map((value) => (
-                    <button
-                      key={value}
-                      aria-pressed={timer === value}
-                      className={timer === value ? 'selected' : ''}
-                      onClick={() => setTimer(value)}
-                    >
-                      {value}
-                      <span> sec</span>
-                    </button>
-                  ))}
-                </div>
-              </fieldset>
-              <button
-                className="current-frame-button"
-                type="button"
-                onClick={() => setSettingsView('frame')}
-              >
-                <Icon name="grid" size={16} />
-                <span>
-                  <small>Selected frame</small>
-                  <strong>
-                    {selectedTemplate
-                      ? frameChoiceName(selectedTemplate)
-                      : 'Doodle No. 01'}
-                  </strong>
-                </span>
-                <Icon name="arrow" size={15} />
-              </button>
-            </div>
-            <div
-              id="frame-settings"
-              className="settings-content"
-              hidden={settingsView !== 'frame'}
-            >
-              <div className="custom-template-controls">
-                <div className="template-select-field">
-                  <span>Strip template</span>
-                  <StudioSelect
-                    label="Strip template"
-                    value={
-                      selectedTemplate ? frameChoiceId(selectedTemplate) : ''
-                    }
+                <div className="custom-template-controls">
+                  <div className="template-select-field">
+                    <span>Strip template</span>
+                    <StudioSelect
+                      label="Strip template"
+                      value={activeFrameChoice}
+                      disabled={studioFramesLocked}
+                      onChange={(value) => {
+                        if (
+                          olderCustomFrames.some(
+                            (template) => template.id === value,
+                          )
+                        )
+                          void editSavedTemplate(value);
+                        else void chooseTemplate(value);
+                      }}
+                      getActions={(id) => {
+                        const target = templates.find(
+                          (template) => template.id === id,
+                        );
+                        return target && !target.builtIn
+                          ? [
+                              {
+                                label: 'Edit',
+                                icon: 'edit',
+                                onClick: () => void editSavedTemplate(id),
+                              },
+                              {
+                                label: 'Remove',
+                                icon: 'remove',
+                                onClick: () => setRemovingTemplate(target),
+                              },
+                            ]
+                          : [];
+                      }}
+                      options={[
+                        {
+                          value: '',
+                          label: 'Doodle No. 01',
+                          description: 'Included VYORA frame',
+                        },
+                        ...studioFrameChoices.map((choice) => ({
+                          value: choice.id,
+                          label: choice.name,
+                          description: choice.template.builtIn
+                            ? 'Free VYORA frame · 4 photos'
+                            : `${choice.template.slots.length} photo areas · custom frame`,
+                        })),
+                        ...olderCustomFrames.map((template) => ({
+                          value: template.id,
+                          label: template.name,
+                          description: 'Edit to add 4 photo areas',
+                        })),
+                      ]}
+                    />
+                  </div>
+                  <div className="frame-preview-card">
+                    <FramePreview
+                      template={selectedTemplate ?? undefined}
+                      shots={shots}
+                    />
+                    <div>
+                      <strong>{shots} photo openings</strong>
+                      <p>Your photos fill the frame automatically.</p>
+                    </div>
+                  </div>
+                  <button
                     disabled={
                       running ||
                       !!pendingStrip ||
                       loadingTemplate ||
                       !!exportingStrip
                     }
-                    onChange={(value) => {
-                      if (
-                        olderCustomFrames.some(
-                          (template) => template.id === value,
-                        )
-                      )
-                        void editSavedTemplate(value);
-                      else void chooseTemplate(value);
+                    onClick={() => {
+                      setError('');
+                      setEditingExistingTemplate(undefined);
+                      setEditingTemplate(true);
                     }}
-                    getActions={(id) => {
-                      const target = templates.find(
-                        (template) => template.id === id,
-                      );
-                      return target && !target.builtIn
-                        ? [
-                            {
-                              label: 'Edit',
-                              icon: 'edit',
-                              onClick: () => void editSavedTemplate(id),
-                            },
-                            {
-                              label: 'Remove',
-                              icon: 'remove',
-                              onClick: () => setRemovingTemplate(target),
-                            },
-                          ]
-                        : [];
-                    }}
-                    options={[
-                      {
-                        value: '',
-                        label: 'Doodle No. 01',
-                        description: 'Included VYORA frame',
-                      },
-                      ...studioFrameChoices.map((choice) => ({
-                        value: choice.id,
-                        label: choice.name,
-                        description: choice.template.builtIn
-                          ? 'Free VYORA frame · 4 photos'
-                          : `${choice.template.slots.length} photo areas · custom frame`,
-                      })),
-                      ...olderCustomFrames.map((template) => ({
-                        value: template.id,
-                        label: template.name,
-                        description: 'Edit to add 4 photo areas',
-                      })),
-                    ]}
-                  />
+                  >
+                    Create a template
+                  </button>
+                  <p>PNG or JPEG · 4 photo areas.</p>
                 </div>
-                <div className="frame-preview-card">
-                  <FramePreview
-                    template={selectedTemplate ?? undefined}
-                    shots={shots}
-                  />
-                  <div>
-                    <strong>{shots} photo openings</strong>
-                    <p>Your photos fill the frame automatically.</p>
-                  </div>
-                </div>
-                <button
-                  disabled={
-                    running ||
-                    !!pendingStrip ||
-                    loadingTemplate ||
-                    !!exportingStrip
-                  }
-                  onClick={() => {
-                    setError('');
-                    setEditingExistingTemplate(undefined);
-                    setEditingTemplate(true);
-                  }}
-                >
-                  Create a template
-                </button>
-                <p>PNG or JPEG · 4 photo areas.</p>
               </div>
             </div>
             <div className="session-summary">
@@ -2416,23 +2515,23 @@ function App() {
             </div>
           )}
         </section>
-        <footer className="app-footer">
-          <span>
-            <span
-              className="vyora-wordmark"
-              role="img"
-              aria-label="VYORA Photobooth"
-            />
-            <span>A little moment. A lasting feeling.</span>
-          </span>
-          <span
-            className="footer-version"
-            aria-label={`VYORA version ${appVersion}`}
-          >
-            VYORA v{appVersion}
-          </span>
-        </footer>
       </main>
+      <footer className="app-footer">
+        <span>
+          <span
+            className="vyora-wordmark"
+            role="img"
+            aria-label="VYORA Photobooth"
+          />
+          <span>A little moment. A lasting feeling.</span>
+        </span>
+        <span
+          className="footer-version"
+          aria-label={`VYORA version ${appVersion}`}
+        >
+          VYORA v{appVersion}
+        </span>
+      </footer>
 
       {guest.open && (
         <GuestDisplayPanel
@@ -2444,6 +2543,21 @@ function App() {
       )}
       {showCameraHelp && (
         <CameraHelp onClose={() => setShowCameraHelp(false)} />
+      )}
+      {showCameraSettings && (
+        <CameraCaptureSettings
+          value={equipment}
+          disabled={cameraSettingsDisabled}
+          onChange={configureEquipment}
+          onClose={() => setShowCameraSettings(false)}
+        />
+      )}
+      {showAppearance && (
+        <AppearanceDialog
+          theme={theme}
+          onChange={setTheme}
+          onClose={() => setShowAppearance(false)}
+        />
       )}
       {showUsageNotice && (
         <UsageNoticeDialog onClose={() => setShowUsageNotice(false)} />

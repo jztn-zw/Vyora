@@ -27,12 +27,13 @@ import {
   zoomAnchorOffset,
 } from '../src/editor-viewport.ts';
 
-function pixels(kind) {
+function pixels(kind, count = 3) {
   const width = 120,
-    height = 300;
+    height = Math.max(300, count * 85 + 20);
   const data = new Uint8ClampedArray(width * height * 4);
   for (let i = 0; i < width * height; i++) data.set([30, 30, 30, 255], i * 4);
-  for (const top of [10, 95, 180]) {
+  for (let index = 0; index < count; index++) {
+    const top = 10 + index * 85;
     for (let y = top; y < top + 70; y++)
       for (let x = 10; x < 110; x++)
         data.set(
@@ -635,6 +636,20 @@ test('a transparent or white outside border is not a photo area', () => {
     assert.equal(detectPhotoSlots(data, 100, 200).detected, false);
   }
   assert.throws(() => detectPhotoSlots(new Uint8ClampedArray(1), 100, 100));
+});
+
+test('frames with extra openings require manual placement and preserve the frame position', () => {
+  for (const [kind, layer, count] of [
+    ['transparent', 'overlay', 5],
+    ['white', 'background', 6],
+  ]) {
+    const { data, width, height } = pixels(kind, count);
+    const result = detectPhotoSlots(data, width, height);
+    assert.equal(result.excessOpenings, count);
+    assert.equal(result.layer, layer);
+    assert.equal(result.detected, false);
+    assert.deepEqual(result.slots, []);
+  }
 });
 
 test('template validation rejects executable assets, invalid sizes and out-of-bounds slots', () => {

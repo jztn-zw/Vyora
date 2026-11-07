@@ -83,7 +83,7 @@ export function GuestDisplayPanel({
         <header>
           <div>
             <span className="guest-kicker">STUDIO / GUEST DISPLAY</span>
-            <h2 id="guest-manager-title">A screen for your guests.</h2>
+            <h2 id="guest-manager-title">Guest displays</h2>
             <p>Keep the controls here. Let your guests enjoy the booth.</p>
           </div>
           <button className="outline-button" onClick={onClose}>

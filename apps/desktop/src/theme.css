@@ -466,37 +466,6 @@ legend > span {
   align-items: center;
   justify-self: end;
 }
-.theme-picker {
-  position: relative;
-  z-index: 8;
-}
-.theme-picker > summary {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 105px;
-  min-height: 39px;
-  padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  color: var(--ink);
-  background: var(--paper);
-  cursor: pointer;
-  list-style: none;
-  font-size: 11px;
-  font-weight: 500;
-}
-.theme-picker > summary::-webkit-details-marker {
-  display: none;
-}
-.theme-picker > summary:hover,
-.theme-picker[open] > summary {
-  background: var(--surface);
-  border-color: var(--line-strong);
-}
-.theme-picker > summary > svg {
-  margin-left: auto;
-}
 .theme-dot {
   width: 13px;
   height: 13px;
@@ -504,6 +473,10 @@ legend > span {
   border-radius: 50%;
   display: inline-block;
   flex-shrink: 0;
+}
+.studio-tools-menu > button > .theme-dot {
+  flex: 0 0 13px;
+  margin-inline: 3px;
 }
 .theme-dot-light {
   background: #fff;
@@ -515,23 +488,52 @@ legend > span {
 .theme-dot-vyora {
   background: linear-gradient(135deg, #7136c4, #cd38ae);
 }
-.theme-menu {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 9px);
-  width: 274px;
-  padding: 10px;
-  border: 1px solid var(--line);
-  border-radius: 13px;
+.appearance-dialog {
+  width: min(440px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 18px;
+  overflow: auto;
+  overscroll-behavior: contain;
   background: var(--paper);
-  box-shadow: var(--menu-shadow);
+  color: var(--ink);
+  box-shadow: 0 24px 90px #0006;
 }
-.theme-menu > p {
-  margin: 5px 7px 12px;
-  font-size: 8px;
+.appearance-dialog::backdrop {
+  background: #100b1899;
+  backdrop-filter: blur(6px);
+}
+body:has(.appearance-dialog[open]) {
+  overflow: hidden;
+}
+.appearance-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px;
+  border-bottom: 1px solid var(--line);
+}
+.appearance-header h2 {
+  margin: 0;
+  font-size: 23px;
   font-weight: 600;
+}
+.appearance-header p {
+  margin: 5px 0 0;
+  font-size: 11px;
+  line-height: 1.5;
   color: var(--muted);
-  letter-spacing: 1.4px;
+}
+.appearance-header .outline-button {
+  flex: none;
+  min-height: 40px;
+}
+.theme-menu {
+  display: grid;
+  gap: 6px;
+  padding: 12px 18px 16px;
 }
 .theme-menu > button {
   display: flex;
@@ -652,9 +654,6 @@ legend > span {
   }
   .folder-button svg:last-child {
     display: none;
-  }
-  .theme-picker > summary {
-    min-width: 96px;
   }
 }
 @media (max-width: 900px) {

@@ -43,6 +43,7 @@ app.whenReady().then(async () => {
     const originals = structuredClone(photos);
     const replaced = [];
     let saved;
+    let savedJpeg;
     let guestStrip;
     let fileMissing = false;
     let attempts = 0;
@@ -121,11 +122,26 @@ app.whenReady().then(async () => {
       assert.equal(id, strip.id);
       return { ok: true, value: strip };
     });
-    handle('strip:preview', () => ({
-      ok: false,
-      error: 'The saved strip file is missing.',
+    handle('strip:preview', () =>
+      fileMissing || !savedJpeg
+        ? { ok: false, error: 'The saved strip file is missing.' }
+        : { ok: true, value: savedJpeg },
+    );
+    handle('printer:state', () => ({
+      ok: true,
+      value: {
+        devices: [{ name: 'fixture-printer', displayName: 'Fixture printer' }],
+        settings: {
+          deviceName: 'fixture-printer',
+          layout: 'double-strip',
+          copies: 1,
+        },
+        settingsIssue: '',
+        busy: false,
+        job: null,
+      },
     }));
-    handle('printer:state', () => ({ ok: false, error: 'No test printer' }));
+    handle('printer:activity', () => ({ ok: true, value: { busy: false } }));
     handle('strip:save', ({ id, jpeg }) => {
       assert.equal(id, guestStrip?.id || strip.id);
       assert.ok(jpeg instanceof ArrayBuffer);
@@ -181,6 +197,7 @@ app.whenReady().then(async () => {
       }
       attempts++;
       if (attempts === 1) return { ok: false, error: 'Simulated disk failure' };
+      savedJpeg = `data:image/jpeg;base64,${Buffer.from(jpeg).toString('base64')}`;
       const confirmed = guestStrip || strip;
       saved = {
         ...confirmed,
@@ -193,6 +210,7 @@ app.whenReady().then(async () => {
     handle('session:capture', ({ sessionId, jpeg, templateId }) => {
       assert.equal(templateId, rotatedFrame.id);
       const image = nativeImage.createFromBuffer(Buffer.from(jpeg));
+      assert.deepEqual(image.getSize(), { width: 64, height: 48 });
       assertOrientation(image, false);
       const photo = {
         id: randomUUID(),
@@ -300,14 +318,15 @@ app.whenReady().then(async () => {
       ),
       /\(2\)/,
     );
-    // Mock media only in this disposable renderer. Never request a native camera.
+    // Simulate a virtual camera with a 4:3 image inside black side bands.
     await evaluate(`(() => {
       const canvas = document.createElement('canvas');
-      canvas.width = 64; canvas.height = 48;
+      canvas.width = 80; canvas.height = 48;
       const context = canvas.getContext('2d');
       const paint = () => {
-        context.fillStyle = '#b42335'; context.fillRect(0, 0, 32, 48);
-        context.fillStyle = '#598c75'; context.fillRect(32, 0, 32, 48);
+        context.fillStyle = '#000'; context.fillRect(0, 0, 80, 48);
+        context.fillStyle = '#b42335'; context.fillRect(8, 0, 32, 48);
+        context.fillStyle = '#598c75'; context.fillRect(40, 0, 32, 48);
       };
       paint();
       const stream = canvas.captureStream(10);
@@ -373,6 +392,14 @@ app.whenReady().then(async () => {
     );
     await until("!document.querySelector('.capture-review[open]')");
     await until("!!document.querySelector('.frame-sequence > .retaking')");
+    assert.deepEqual(
+      await evaluate(`(() => {
+        const input = document.querySelector('.mirror-control input');
+        return [input.disabled, getComputedStyle(input).opacity];
+      })()`),
+      [true, '0'],
+      'Capture locks the mirror switch without revealing its native checkbox',
+    );
     assert.equal(
       await evaluate(
         "document.querySelector('.frame-sequence > .retaking').title",
@@ -445,14 +472,64 @@ app.whenReady().then(async () => {
       ['01', '02', '03', '04'],
     );
     assert.ok(saved.photos.every((photo) => photo.thumbnail === ''));
+    await until("!!document.querySelector('.strip-viewer[open]')");
+    await until("!!document.querySelector('.strip-print-size')");
+    assert.match(
+      await evaluate("document.querySelector('.strip-print-size').textContent"),
+      /2 × 5\.69 in photo · 2 per 4 × 6 in sheet/,
+    );
+    await evaluate(
+      "document.querySelector('.strip-viewer-header button').click()",
+    );
+    await until("!document.querySelector('.strip-viewer[open]')");
+    await until(
+      "document.querySelectorAll('.studio-frame-card:not(:disabled)').length === 2",
+    );
+    assert.equal(
+      await evaluate(
+        "document.querySelectorAll('.studio-frame-card .frame-choice-preview image').length",
+      ),
+      2,
+      'Studio shows the actual artwork for the default and custom frames',
+    );
+    await evaluate(`(() => {
+      const track = document.querySelector('.studio-frame-track');
+      track.style.maxWidth = '140px';
+      track.focus();
+      track.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true, cancelable: true }));
+    })()`);
+    await until(
+      "document.activeElement === document.querySelector('.studio-frame-card:last-child') && document.querySelector('.studio-frame-track').scrollLeft > 0",
+    );
+    await evaluate('document.activeElement.click()');
+    await until(
+      "document.querySelector('.studio-frame-card:last-child').getAttribute('aria-pressed') === 'true'",
+    );
+    await evaluate(`(() => {
+      document.querySelector('.studio-frame-track').style.removeProperty('max-width');
+      document.querySelector('.studio-frame-card:first-child').click();
+    })()`);
+    await until(
+      "document.querySelector('.studio-frame-card:first-child').getAttribute('aria-pressed') === 'true'",
+    );
     await evaluate(
       "Array.from(document.querySelectorAll('.main-nav button')).find((button) => button.textContent.includes('My library')).click()",
     );
     await until("document.querySelectorAll('.strip-card').length === 1");
+    const footerBottomGap =
+      "Math.abs(innerHeight - document.querySelector('.app-footer').getBoundingClientRect().bottom)";
+    assert.ok(
+      (await evaluate(footerBottomGap)) <= 1,
+      'The footer reaches the window bottom when one strip fits',
+    );
     fileMissing = true;
     await evaluate("window.dispatchEvent(new Event('focus'))");
     await until(
       "document.querySelectorAll('.strip-card').length === 0 && document.querySelector('.nav-count').textContent === '0'",
+    );
+    assert.ok(
+      (await evaluate(footerBottomGap)) <= 1,
+      'The footer reaches the window bottom when the library is empty',
     );
     fileMissing = false;
     await evaluate("window.dispatchEvent(new Event('focus'))");
@@ -466,14 +543,14 @@ app.whenReady().then(async () => {
     await evaluate(
       "Array.from(document.querySelectorAll('.main-nav button')).find((button) => button.textContent.includes('Photo booth')).click()",
     );
-    await until("!!document.querySelector('.guest-actions > summary')");
+    await until(
+      "!!document.querySelector('.guest-start-button:not(:disabled)')",
+    );
     await evaluate("document.querySelector('.mirror-control input').click()");
     await until(
       "!document.querySelector('.viewfinder video').classList.contains('mirrored')",
     );
-    await evaluate(
-      "document.querySelector('.guest-actions > summary').click(); document.querySelector('.guest-action-setup').click()",
-    );
+    await evaluate("document.querySelector('.guest-start-button').click()");
     await until("!!document.querySelector('.booth-setup')");
     await evaluate(
       "Array.from(document.querySelectorAll('.booth-frame-option')).filter(button => button.getAttribute('aria-pressed') !== 'true').forEach(button => button.click())",

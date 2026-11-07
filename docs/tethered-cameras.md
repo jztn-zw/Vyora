@@ -1,7 +1,7 @@
 # Tethered cameras and flash
 
-VYORA has two capture methods under **Capture & lighting** in the Studio camera
-settings. **Webcam / video camera** remains the default. It captures video frames
+VYORA has two capture methods under **Studio tools** (⋯) → **Capture & lighting**.
+**Webcam / video camera** remains the default. It captures video frames
 and works with continuous lighting. **Tethered camera** requests a real shutter
 through the optional, separately installed digiCamControl connector and uses the
 returned full-resolution JPEG. A compatible camera controls its flash through its
@@ -28,8 +28,9 @@ webcam, HDMI capture card or USB flash accessory.
    default port is **5513**. Restrict its network access to this computer; VYORA
    only connects to `127.0.0.1`. This connector is separate from VYORA guest-device
    pairing and does not need access from other devices.
-5. In VYORA, open **Capture & lighting**, choose **Tethered camera**, check the
-   port, and select **Enable camera**. VYORA starts the connector's live view and
+5. In VYORA, open **Studio tools** (⋯) → **Capture & lighting**, choose
+   **Tethered camera**, and check the port. Select **Done**, then **Enable camera**
+   in the preview. VYORA starts the connector's live view and
    minimizes its windows. It must remain running in the background.
 6. Attach a flash/trigger compatible with the camera and configure it using the
    hardware manuals. Use exposure and shutter settings compatible with that

@@ -69,7 +69,13 @@ button svg {
   top: 10px;
 }
 .app-shell {
+  --workspace-width: 1344px;
+  --workspace-gutter: 32px;
   min-height: 100dvh;
+}
+.app-shell:not(.kiosk-mode) {
+  display: flex;
+  flex-direction: column;
 }
 .topbar {
   position: sticky;
@@ -156,9 +162,14 @@ button svg {
   transform: rotate(-45deg);
 }
 main {
-  max-width: 1344px;
-  padding: 35px 32px 0;
+  max-width: var(--workspace-width, 1344px);
+  padding: 35px var(--workspace-gutter, 32px) 0;
   margin: auto;
+}
+.app-shell:not(.kiosk-mode) > main {
+  flex: 1 0 auto;
+  width: 100%;
+  margin-block: 0;
 }
 .page-heading {
   display: flex;
@@ -654,6 +665,9 @@ h1 em {
   opacity: 0;
   cursor: pointer;
 }
+.mirror-control input:disabled {
+  cursor: not-allowed;
+}
 .switch-track {
   width: 26px;
   height: 15px;
@@ -812,53 +826,98 @@ h1 em {
   border-color: var(--line);
   color: var(--accent);
 }
-.settings-content {
+.settings-pages {
+  display: grid;
   flex: 1;
+  grid-template-columns: minmax(0, 1fr);
+}
+.settings-content {
+  /* Both tabs size the same row so the adjacent camera preview stays steady. */
+  grid-area: 1 / 1;
   min-width: 0;
   min-height: 310px;
+}
+.settings-content[inert] {
+  visibility: hidden;
 }
 .settings-content .custom-template-controls {
   margin-top: 0;
 }
-.current-frame-button {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
+.studio-frame-picker {
+  min-width: 0;
   margin-top: 18px;
-  padding: 10px 12px;
+}
+.studio-frame-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin-bottom: 6px;
+}
+.studio-frame-heading h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 12px;
+}
+.studio-frame-heading > span {
+  color: var(--muted);
+  font-size: 10px;
+}
+.studio-frame-card {
+  display: flex;
+  flex: 0 0 96px;
+  flex-direction: column;
+  min-width: 0;
+  gap: 6px;
+  padding: 6px;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: var(--surface-inset);
-  color: var(--muted);
-  text-align: left;
+  color: var(--ink);
+  scroll-snap-align: start;
 }
-.current-frame-button:hover {
-  background: var(--surface-hover);
-  border-color: var(--line-strong);
+.studio-frame-card[aria-pressed='true'] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
 }
-.current-frame-button > span {
-  flex: 1;
-  min-width: 0;
+.studio-frame-track .studio-frame-card:focus-visible {
+  outline-offset: -3px;
 }
-.current-frame-button strong,
-.current-frame-button small {
+.studio-frame-art {
+  position: relative;
   display: block;
+  width: 100%;
+  height: 126px;
+  padding: 6px;
+  border-radius: 6px;
+  background: var(--surface);
+}
+.studio-frame-name {
+  display: block;
+  width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-.current-frame-button small {
-  font-size: 9px;
-  margin-bottom: 3px;
-}
-.current-frame-button strong {
-  color: var(--ink);
   font-size: 11px;
   font-weight: 600;
 }
-.current-frame-button > svg {
-  flex-shrink: 0;
+.studio-frame-card small {
+  align-self: center;
+  font-size: 9px;
+  color: var(--muted);
+}
+.studio-frame-check {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  color: var(--accent-text);
+  background: var(--action-fill);
 }
 .frame-preview-card {
   display: grid;
@@ -1369,7 +1428,8 @@ figcaption {
   justify-content: space-between;
   align-items: center;
   gap: 20px;
-  margin-top: 25px;
+  width: calc(min(100%, var(--workspace-width)) - 2 * var(--workspace-gutter));
+  margin: 25px auto 0;
   padding: 21px 0 23px;
   border-top: 1px solid var(--line);
   color: #808080;
@@ -1419,11 +1479,13 @@ figcaption {
   }
 }
 @media (max-width: 1150px) {
+  .app-shell {
+    --workspace-gutter: 28px;
+  }
   .topbar {
     padding-inline: 28px;
   }
   main {
-    padding-inline: 28px;
     padding-top: 28px;
   }
   .capture-layout {

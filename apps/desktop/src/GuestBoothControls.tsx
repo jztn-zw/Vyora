@@ -58,7 +58,6 @@ export function GuestBoothControls({
   saving,
   canSetup,
   status,
-  onDisplays,
   onSetup,
   onPause,
   onNext,
@@ -71,20 +70,20 @@ export function GuestBoothControls({
   saving: boolean;
   canSetup: boolean;
   status: string;
-  onDisplays: () => void;
   onSetup: () => void;
   onPause: () => void;
   onNext: () => void;
 }) {
   const root = useRef<HTMLDetailsElement>(null);
   useEffect(() => {
+    if (!active) return;
     const outside = (event: PointerEvent) => {
       if (root.current && !root.current.contains(event.target as Node))
         root.current.open = false;
     };
     document.addEventListener('pointerdown', outside);
     return () => document.removeEventListener('pointerdown', outside);
-  }, []);
+  }, [active]);
   function choose(action: () => void) {
     if (root.current) {
       root.current.open = false;
@@ -94,6 +93,19 @@ export function GuestBoothControls({
     }
     action();
   }
+  if (!active)
+    return (
+      <button
+        className="guest-start-button"
+        type="button"
+        disabled={!canSetup}
+        onClick={onSetup}
+      >
+        <ActionIcon kind="camera" />
+        Start guest booth
+      </button>
+    );
+
   return (
     <details
       className="guest-actions"
@@ -112,12 +124,10 @@ export function GuestBoothControls({
       >
         <GuestDisplayIcon size={16} />
         <span>Guest booth</span>
-        {active && (
-          <i
-            className={`guest-actions-dot${connected ? ' is-connected' : ''}`}
-            aria-label={connected ? 'Connected' : 'Waiting for connection'}
-          />
-        )}
+        <i
+          className={`guest-actions-dot${connected ? ' is-connected' : ''}`}
+          aria-label={connected ? 'Connected' : 'Waiting for connection'}
+        />
         <svg
           width="12"
           height="12"
@@ -138,11 +148,7 @@ export function GuestBoothControls({
         <div className="guest-actions-heading">
           <span>Guest booth</span>
           <small>
-            {connected
-              ? 'Screen connected'
-              : active
-                ? 'Waiting for connection'
-                : 'Ready to set up'}
+            {connected ? 'Screen connected' : 'Waiting for connection'}
           </small>
         </div>
         <button
@@ -153,65 +159,46 @@ export function GuestBoothControls({
         >
           <ActionIcon kind="camera" />
           <span>
-            <strong>Run guest booth</strong>
+            <strong>Start guest booth</strong>
             <small>Choose frames and start the full-screen booth</small>
           </span>
         </button>
-        <button
-          className="guest-action-displays"
-          type="button"
-          onClick={() => choose(onDisplays)}
-        >
-          <GuestDisplayIcon />
+        <div className="guest-actions-divider" />
+        <p className="guest-actions-session" role="status">
+          <strong>Operator assisted</strong>
+          {status}
+        </p>
+        <button type="button" disabled={saving} onClick={() => choose(onPause)}>
+          <ActionIcon kind={paused ? 'play' : 'pause'} />
           <span>
-            <strong>Display settings</strong>
-            <small>Connect a monitor or pair a guest device</small>
+            <strong>
+              {paused
+                ? 'Resume booth'
+                : running
+                  ? 'Stop & pause'
+                  : 'Pause booth'}
+            </strong>
+            <small>
+              {running
+                ? 'Keep captured photos and pause the countdown'
+                : paused
+                  ? 'Let your guests continue'
+                  : 'Pause new guest actions'}
+            </small>
           </span>
         </button>
-        {active && (
-          <>
-            <div className="guest-actions-divider" />
-            <p className="guest-actions-session" role="status">
-              <strong>Operator assisted</strong>
-              {status}
-            </p>
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => choose(onPause)}
-            >
-              <ActionIcon kind={paused ? 'play' : 'pause'} />
-              <span>
-                <strong>
-                  {paused
-                    ? 'Resume booth'
-                    : running
-                      ? 'Stop & pause'
-                      : 'Pause booth'}
-                </strong>
-                <small>
-                  {running
-                    ? 'Keep captured photos and pause the countdown'
-                    : paused
-                      ? 'Let your guests continue'
-                      : 'Pause new guest actions'}
-                </small>
-              </span>
-            </button>
-            {done && (
-              <button
-                type="button"
-                disabled={saving}
-                onClick={() => choose(onNext)}
-              >
-                <ActionIcon kind="next" />
-                <span>
-                  <strong>Next group</strong>
-                  <small>Prepare the next photo session</small>
-                </span>
-              </button>
-            )}
-          </>
+        {done && (
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => choose(onNext)}
+          >
+            <ActionIcon kind="next" />
+            <span>
+              <strong>Next group</strong>
+              <small>Prepare the next photo session</small>
+            </span>
+          </button>
         )}
       </div>
     </details>

@@ -285,7 +285,7 @@ app.whenReady().then(async () => {
     );
     await run(
       host,
-      "document.querySelector('.guest-actions > summary').click(); document.querySelector('.guest-action-setup').click()",
+      "document.querySelector('.guest-actions > summary').click(); Array.from(document.querySelectorAll('.guest-actions-menu button')).find(button => button.querySelector('strong')?.textContent === 'Start guest booth').click()",
     );
     await until(host, "!!document.querySelector('.booth-setup')");
     assert.equal(
@@ -514,7 +514,7 @@ app.whenReady().then(async () => {
     await capture(guest, 'guest-assisted-ready-after-save.png');
     await run(
       host,
-      "document.querySelector('.guest-actions > summary').click(); document.querySelector('.guest-action-displays').click()",
+      "document.querySelector('.studio-tools > summary').click(); Array.from(document.querySelectorAll('.studio-tools-menu button')).find(button => button.querySelector('strong')?.textContent === 'Guest displays').click()",
     );
     await until(host, "!!document.querySelector('.guest-manager[open]')");
     await capture(host, 'controller-connections.png');

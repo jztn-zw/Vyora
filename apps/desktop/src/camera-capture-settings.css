@@ -1,34 +1,26 @@
-.capture-equipment {
-  margin-top: 12px;
-}
-.capture-equipment > summary {
-  padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--control-radius, 9px);
-  color: var(--muted);
-  background: var(--surface-inset);
-  cursor: pointer;
-  font-size: 11px;
-  font-weight: 600;
-}
-.capture-equipment > div {
+.capture-equipment-content {
   display: grid;
-  gap: 14px;
-  padding: 16px 0 4px;
+  gap: 16px;
 }
-.capture-equipment label {
+.capture-equipment-method,
+.capture-equipment-fields label {
   display: grid;
   gap: 8px;
   color: var(--ink);
-  font-size: 11px;
+  font-size: 12px;
 }
-.capture-equipment p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 11px;
-  line-height: 1.7;
+.capture-equipment-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
+  gap: 12px;
 }
-.capture-equipment .capture-equipment-note {
-  padding-left: 10px;
+.capture-equipment-note {
+  padding: 10px 12px;
+  border-radius: 0 var(--control-radius) var(--control-radius) 0;
   border-left: 2px solid var(--accent);
+  background: var(--surface-inset);
+}
+.capture-equipment-reconnect {
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
 }

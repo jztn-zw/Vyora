@@ -17,13 +17,15 @@ import {
   PrintUncertainError,
   printDocument,
   printGeometry,
+  sheetPhotoSize,
   validatePrinterSettings,
   validatePrintRequest,
 } from './print-layout.ts';
+import type { ImageSize } from './print-layout.ts';
 
 export interface PrintAdapter {
   list(): Promise<PrinterDevice[]>;
-  readStrip(id: string): Promise<string>;
+  readStrip(id: string): Promise<{ jpeg: string; size: ImageSize }>;
   submit(
     html: string,
     settings: PrinterSettings,
@@ -135,6 +137,14 @@ export class PrinterService {
     };
   }
 
+  async measureSheetPhoto(id: string) {
+    const { size } = await abortable(
+      this.adapter.readStrip(id),
+      AbortSignal.timeout(15000),
+    );
+    return sheetPhotoSize(size);
+  }
+
   acknowledgeSheet(id: string, printed: boolean) {
     if (
       this.active ||
@@ -207,7 +217,7 @@ export class PrinterService {
       message: 'Preparing your strip…',
       printerName: settings.deviceName,
       sheets: settings.copies,
-      stripsPerSheet: printGeometry(settings.layout).columns,
+      stripsPerSheet: 1,
     };
     this.lastJob = job;
     this.jobs.set(requestId, job);
@@ -294,12 +304,13 @@ export class PrinterService {
           'Your saved printer is not detected. Open Printer settings to reconnect it or choose another.',
         );
       let html: string;
+      let target: PrintTarget;
       if (sheet) {
         const images = new Map<string, string>();
         let bytes = 0;
         for (const p of sheet.placements) {
           if (images.has(p.stripId)) continue;
-          const jpeg = await abortable(
+          const { jpeg } = await abortable(
             this.adapter.readStrip(p.stripId),
             controller.signal,
           );
@@ -311,12 +322,22 @@ export class PrinterService {
           images.set(p.stripId, jpeg);
         }
         html = sheetDocument(sheet.paper, sheet.placements, images);
+        target = {
+          pageSize: {
+            width: sheet.paper.spec.width,
+            height: sheet.paper.spec.height,
+          },
+          images: sheet.placements.length,
+        };
       } else {
-        const jpeg = await abortable(
+        const { jpeg, size } = await abortable(
           this.adapter.readStrip(job.stripId),
           controller.signal,
         );
-        html = printDocument(jpeg, settings);
+        const geometry = printGeometry(settings.layout, size);
+        job.stripsPerSheet = geometry.columns;
+        target = { pageSize: geometry.pageSize, images: geometry.columns };
+        html = printDocument(jpeg, settings, size);
       }
       await this.adapter.submit(
         html,
@@ -338,19 +359,11 @@ export class PrinterService {
             this.emit(job, true);
           }, 60000);
         },
-        sheet
-          ? {
-              pageSize: {
-                width: sheet.paper.spec.width,
-                height: sheet.paper.spec.height,
-              },
-              images: sheet.placements.length,
-            }
-          : undefined,
+        target,
       );
       job.status = 'submitted';
       job.message =
-        'Sent to printer. Collect your strips when printing finishes.';
+        'Sent to printer. Collect your prints when printing finishes.';
     } catch (cause) {
       job.status =
         submitted &&

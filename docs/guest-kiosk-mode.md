@@ -1,6 +1,7 @@
 # Guest kiosk mode
 
-Choose **Set up booth** in the Studio's Guest booth panel to open organizer setup. Select
+Choose **Start guest booth** in the Studio toolbar to open organizer setup. If a
+guest display is active, this action is in the **Guest booth** menu. Select
 which four-photo frames guests may use and set the countdown duration.
 Select **Start full-screen booth** when setup is ready.
 VYORA requests fullscreen when the system allows it; the booth still works in

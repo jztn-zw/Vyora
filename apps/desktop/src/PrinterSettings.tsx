@@ -246,9 +246,9 @@ export function PrinterSettings({
           </div>
           {draft.layout === 'sheet' && (
             <p className="printer-calibration">
-              For desktop printers: arrange fixed 2 × 6-inch strips on long
-              bond, A4, Letter, or a supported leftover piece. Add different
-              sessions to the queue and cut the finished sheet manually.
+              Arrange photos of different sizes on long bond, A4, Letter, or a
+              supported leftover piece. Add photos from saved sessions to the
+              queue, then cut the finished sheet by hand.
             </p>
           )}
           {draft.layout !== 'sheet' && (
@@ -275,7 +275,7 @@ export function PrinterSettings({
                       <i />
                     </span>
                     <strong>
-                      {layout === 'double-strip' ? 'Two strips' : 'One strip'}
+                      {layout === 'double-strip' ? 'Auto fit' : 'Narrow paper'}
                     </strong>
                     <span>
                       {layout === 'double-strip'
@@ -304,12 +304,9 @@ export function PrinterSettings({
                 />
               </div>
               <p className="printer-hint">
-                Each strip is 2 × 6 inches.{' '}
-                {Number.isInteger(draft.copies) &&
-                draft.copies >= 1 &&
-                draft.copies <= 10
-                  ? `${draft.copies} sheet${draft.copies === 1 ? '' : 's'} produces ${draft.copies * (draft.layout === 'double-strip' ? 2 : 1)} strip${draft.copies * (draft.layout === 'double-strip' ? 2 : 1) === 1 ? '' : 's'}.`
-                  : 'Choose 1–10 sheets.'}
+                {draft.layout === 'double-strip'
+                  ? 'Each sheet holds two copies of a narrow strip or one copy of a wider photo.'
+                  : 'Each sheet holds one copy fitted to the 2 × 6-inch paper.'}
               </p>
             </>
           )}

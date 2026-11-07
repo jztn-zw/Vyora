@@ -2,7 +2,8 @@
   position: relative;
   z-index: 9;
 }
-.guest-actions > summary {
+.guest-actions > summary,
+.guest-start-button {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -22,7 +23,8 @@
 .guest-actions > summary::-webkit-details-marker {
   display: none;
 }
-.guest-actions > summary > svg:first-child {
+.guest-actions > summary > svg:first-child,
+.guest-start-button > svg {
   color: var(--accent);
 }
 .guest-actions > summary > svg:last-child {
@@ -37,7 +39,8 @@
 .guest-actions[open] > summary > svg:last-child {
   transform: rotate(180deg);
 }
-.guest-actions > summary:focus-visible {
+.guest-actions > summary:focus-visible,
+.guest-start-button:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
 }

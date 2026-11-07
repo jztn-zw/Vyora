@@ -3,6 +3,7 @@
   --control-duration: 180ms;
   --control-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
   --control-radius: 9px;
+  --control-focus-color: var(--accent);
   --control-hover-fill: color-mix(
     in srgb,
     var(--accent-soft) 68%,
@@ -14,8 +15,6 @@
     var(--line-strong)
   );
   --control-hover-color: var(--ink);
-  --control-hover-shadow: 0 2px 9px
-    color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
 /* Canvas handles and the transparent kiosk start surface keep their own interactions. */
@@ -69,7 +68,7 @@
     .template-tool-buttons button,
     .template-zoom-controls button,
     .guest-actions > summary,
-    .theme-picker > summary,
+    .guest-start-button,
     .studio-tools > summary,
     .camera-picker > summary,
     select
@@ -77,7 +76,8 @@
   border-radius: var(--control-radius) !important;
   font-weight: 600;
 }
-:root :is(.guest-actions, .theme-picker, .studio-tools) > summary {
+:root :is(.guest-actions, .studio-tools) > summary,
+:root .guest-start-button {
   min-height: 40px;
   border-color: var(--line);
   background: var(--paper);
@@ -104,8 +104,7 @@
   --control-hover-fill: var(--action-hover);
   --control-hover-border: transparent;
   --control-hover-color: var(--accent-text);
-  --control-hover-shadow: 0 3px 10px
-    color-mix(in srgb, var(--accent) 18%, transparent);
+  --control-focus-color: var(--accent-text);
 }
 
 @media (hover: hover) {
@@ -127,18 +126,14 @@
     background: var(--control-hover-fill);
     border-color: var(--control-hover-border);
     color: var(--control-hover-color);
-    box-shadow: var(--control-hover-shadow);
   }
 }
-:root
-  :is(.theme-picker, .guest-actions, .studio-tools, .camera-picker)[open]
-  > summary,
+:root :is(.guest-actions, .studio-tools, .camera-picker)[open] > summary,
 :root .studio-select-trigger[aria-expanded='true'],
 :root .studio-select-option.is-active {
   background: var(--control-hover-fill);
   border-color: var(--control-hover-border);
   color: var(--control-hover-color);
-  box-shadow: var(--control-hover-shadow);
 }
 
 :root
@@ -188,22 +183,9 @@
       .kiosk-start-surface
     )
   ):focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
+  outline: 2px solid var(--control-focus-color);
+  outline-offset: -2px;
   box-shadow: none;
-}
-/* Inset focus rings remain visible inside clipped menus. */
-:root
-  :is(
-    .theme-menu,
-    .guest-actions-menu,
-    .studio-tools-menu,
-    .camera-options,
-    .studio-select-tools-toolbar
-  )
-  button:focus-visible,
-:root .studio-select-option:focus-visible {
-  outline-offset: -3px;
 }
 
 :root
@@ -237,10 +219,7 @@
   ):disabled {
   opacity: 1;
 }
-:root
-  :is(.theme-picker, .guest-actions, .camera-picker)
-  > summary
-  > svg:last-child,
+:root :is(.guest-actions, .camera-picker) > summary > svg:last-child,
 :root .studio-select-chevron {
   transition: transform var(--control-duration) var(--control-ease);
 }
@@ -254,10 +233,7 @@
       .studio-select-option,
       .template-upload-button
     ),
-  :root
-    :is(.theme-picker, .guest-actions, .camera-picker)
-    > summary
-    > svg:last-child,
+  :root :is(.guest-actions, .camera-picker) > summary > svg:last-child,
   :root .studio-select-chevron {
     transition: none !important;
     animation: none !important;
@@ -267,9 +243,9 @@
   }
 }
 
-:root .template-upload-button:focus-within {
+:root .template-upload-button:has(input:focus-visible) {
   outline: 2px solid var(--accent);
-  outline-offset: 3px;
+  outline-offset: -2px;
 }
 :root .switch-track {
   transition: background-color var(--control-duration) var(--control-ease);

@@ -11,6 +11,7 @@
   --plum: #251639;
   --motion-easing: cubic-bezier(0.22, 1, 0.36, 1);
   --motion: 180ms var(--motion-easing);
+  --page-duration: 320ms;
   font-family: 'Segoe UI', system-ui, sans-serif;
   background: var(--paper);
   color: var(--ink);
@@ -23,24 +24,30 @@
     scroll-behavior: smooth;
   }
 
-  @view-transition {
-    navigation: auto;
-  }
-
   ::view-transition-group(root) {
-    animation-duration: 240ms;
-    animation-timing-function: var(--motion-easing);
+    animation-duration: var(--page-duration);
+    animation-timing-function: ease-in-out;
   }
 
   /* A short entry also works when a browser skips the cross-document snapshot. */
   :root:not([data-native-transition]) main {
-    animation: page-enter 200ms ease-out backwards;
+    animation: page-enter var(--page-duration) var(--motion-easing) backwards;
+  }
+
+  :root:not([data-native-transition]) .guide-heading {
+    animation: guide-enter var(--page-duration) var(--motion-easing) backwards;
   }
 }
 
 @keyframes page-enter {
   from {
-    opacity: 0.88;
+    opacity: 0.72;
+  }
+}
+
+@keyframes guide-enter {
+  from {
+    translate: 0 8px;
   }
 }
 
@@ -273,6 +280,7 @@ svg {
 
 @media (prefers-reduced-motion: reduce) {
   .site-header,
+  .hero-art,
   .button,
   .button svg,
   :is(.site-header nav, .site-footer, .guide-nav) a:not(.button),
@@ -368,6 +376,11 @@ h1 em {
   justify-items: center;
   margin-inline: auto;
   padding-block: 2.5%;
+  transition: opacity var(--motion);
+}
+
+.hero-art[data-pending] {
+  opacity: 0;
 }
 
 .hero-prints-row {

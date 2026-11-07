@@ -1,12 +1,20 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import { SetupGuide } from './setup-guide';
-import './style.css';
 import pinkFriends from './assets/pink-friends-sample.webp';
 import urbanPop from './assets/urban-pop-sample.webp';
+import urbanPopSmall from './assets/urban-pop-sample-144.webp';
+import urbanPopMedium from './assets/urban-pop-sample-220.webp';
 import nightIndex from './assets/hero-night-index.webp';
+import nightIndexSmall from './assets/hero-night-index-288.webp';
+import nightIndexMedium from './assets/hero-night-index-440.webp';
 import flashClub from './assets/hero-flash-club.webp';
+import flashClubSmall from './assets/hero-flash-club-540.webp';
+import flashClubMedium from './assets/hero-flash-club-800.webp';
 import boothChronicle from './assets/hero-booth-chronicle.webp';
+import boothChronicleSmall from './assets/hero-booth-chronicle-288.webp';
+import boothChronicleMedium from './assets/hero-booth-chronicle-440.webp';
 import emblem from './assets/vyora-emblem.webp';
 import wordmark from './assets/vyora-wordmark.webp';
 import sampleCapture from './assets/booth-friends-original.webp';
@@ -78,6 +86,94 @@ const sessionSteps = [
   },
 ];
 
+// Keep these sizes aligned with the artwork widths in .hero-art and .hero-prints-row.
+const portraitSizes =
+  '(max-width: 525px) calc(38.7vw - 14px), (max-width: 740px) calc(38.7vw - 18px), (max-height: 960px) min(20vw, 32svh, 295px), min(20vw, 333px)';
+const stripSizes =
+  '(max-width: 525px) calc(19.35vw - 7px), (max-width: 740px) calc(19.35vw - 9px), (max-height: 960px) min(10vw, 16svh, 148px), min(10vw, 167px)';
+const horizontalPrintSizes =
+  '(max-width: 525px) calc(75vw - 27px), (max-width: 740px) calc(75vw - 36px), (max-height: 960px) min(41vw, 62svh, 570px), min(43vw, 620px)';
+
+function HeroPrints() {
+  const figureRef = useRef<HTMLElement>(null);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    const images = figureRef.current?.querySelectorAll('img');
+    if (!images?.length) return;
+
+    let cancelled = false;
+    const reveal = () => {
+      if (!cancelled) setReady(true);
+    };
+
+    // Give the prints time to decode together without holding them back on a slow connection.
+    const timeout = window.setTimeout(reveal, 1200);
+    void Promise.allSettled(Array.from(images, (image) => image.decode())).then(() => {
+      window.clearTimeout(timeout);
+      reveal();
+    });
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeout);
+    };
+  }, []);
+
+  return (
+    <figure ref={figureRef} className="hero-figure" aria-label="Sample VYORA photo prints">
+      <div className="hero-art" data-pending={ready ? undefined : ''}>
+        <div className="hero-prints-row">
+          <img
+            className="hero-print hero-print-night"
+            src={nightIndex}
+            srcSet={`${nightIndexSmall} 288w, ${nightIndexMedium} 440w, ${nightIndex} 600w`}
+            sizes={portraitSizes}
+            alt="Night Index, a black editorial VYORA frame with three booth photos"
+            width="600"
+            height="900"
+            decoding="async"
+            fetchPriority="high"
+          />
+          <img
+            className="hero-print hero-print-press"
+            src={boothChronicle}
+            srcSet={`${boothChronicleSmall} 288w, ${boothChronicleMedium} 440w, ${boothChronicle} 600w`}
+            sizes={portraitSizes}
+            alt="Booth Chronicle, a newsprint VYORA frame with four photos in a grid"
+            width="600"
+            height="900"
+            decoding="async"
+            fetchPriority="high"
+          />
+          <img
+            className="hero-print hero-print-strip"
+            src={urbanPop}
+            srcSet={`${urbanPopSmall} 144w, ${urbanPopMedium} 220w, ${urbanPop} 320w`}
+            sizes={stripSizes}
+            alt="Four booth photos in the Urban Pop frame with collage and tape details"
+            width="320"
+            height="960"
+            decoding="async"
+            fetchPriority="high"
+          />
+        </div>
+        <img
+          className="hero-print hero-print-club"
+          src={flashClub}
+          srcSet={`${flashClubSmall} 540w, ${flashClubMedium} 800w, ${flashClub} 1000w`}
+          sizes={horizontalPrintSizes}
+          alt="Flash Club, a horizontal VYORA sticker frame with three black-and-white photos"
+          width="1000"
+          height="360"
+          decoding="async"
+          fetchPriority="high"
+        />
+      </div>
+    </figure>
+  );
+}
+
 function Home() {
   return (
     <>
@@ -107,41 +203,7 @@ function Home() {
             </div>
           </div>
 
-          <figure className="hero-figure" aria-label="Sample VYORA photo prints">
-            <div className="hero-art">
-              <div className="hero-prints-row">
-                <img
-                  className="hero-print hero-print-night"
-                  src={nightIndex}
-                  alt="Night Index, a black editorial VYORA frame with three booth photos"
-                  width="600"
-                  height="900"
-                />
-                <img
-                  className="hero-print hero-print-press"
-                  src={boothChronicle}
-                  alt="Booth Chronicle, a newsprint VYORA frame with four photos in a grid"
-                  width="600"
-                  height="900"
-                  fetchPriority="high"
-                />
-                <img
-                  className="hero-print hero-print-strip"
-                  src={urbanPop}
-                  alt="Four booth photos in the Urban Pop frame with collage and tape details"
-                  width="320"
-                  height="960"
-                />
-              </div>
-              <img
-                className="hero-print hero-print-club"
-                src={flashClub}
-                alt="Flash Club, a horizontal VYORA sticker frame with three black-and-white photos"
-                width="1000"
-                height="360"
-              />
-            </div>
-          </figure>
+          <HeroPrints />
         </div>
       </section>
       <section className="feature-section" id="features" aria-labelledby="features-title">
@@ -151,7 +213,15 @@ function Home() {
             {features.map(({ image, title, description }) => (
               <li key={title}>
                 <div className="feature-art">
-                  <img src={image} alt="" width="780" height="520" loading="lazy" />
+                  <img
+                    src={image}
+                    alt=""
+                    width="780"
+                    height="520"
+                    loading="lazy"
+                    decoding="async"
+                    fetchPriority="low"
+                  />
                 </div>
                 <div>
                   <h3>{title}</h3>
@@ -182,6 +252,8 @@ function Home() {
             width="640"
             height="640"
             loading="lazy"
+            decoding="async"
+            fetchPriority="low"
           />
           <img
             className="workflow-print"
@@ -190,6 +262,8 @@ function Home() {
             width="320"
             height="960"
             loading="lazy"
+            decoding="async"
+            fetchPriority="low"
           />
         </div>
       </section>
@@ -442,4 +516,6 @@ function App() {
 
 if (isSetupPage) document.title = 'VYORA · Setup';
 
-createRoot(document.getElementById('root')!).render(<App />);
+const root = createRoot(document.getElementById('root')!);
+// Commit the page before the entry script releases its render block.
+flushSync(() => root.render(<App />));

@@ -29,6 +29,7 @@ const settings = {
   copies: 1,
 };
 const jpeg = 'data:image/jpeg;base64,/9j/2Q==';
+const stripImage = { jpeg, size: { width: 600, height: 1800 } };
 const flush = async () => {
   for (let i = 0; i < 30; i++) await Promise.resolve();
 };
@@ -111,11 +112,11 @@ async function fixture(t, saved = settings) {
     },
     async readStrip(id) {
       f.readIds.push(id);
-      return jpeg;
+      return stripImage;
     },
-    async submit(html, selected, _signal, onSubmitting) {
+    async submit(html, selected, _signal, onSubmitting, target) {
       onSubmitting();
-      f.submissions.push({ html, selected });
+      f.submissions.push({ html, selected, target });
     },
   };
   f.store = {
@@ -140,6 +141,35 @@ test('detection never selects or prints without saved operator settings', async 
   assert.equal(state.busy, false);
   assert.throws(() => f.service.start(printRequest()), /Choose and save/);
   assert.equal(f.submissions.length, 0);
+});
+
+test('auto fit uses one full sheet for square and wider frames and rotates landscape art', async (t) => {
+  const f = await fixture(t);
+  for (const [size, photoSize, rotated] of [
+    [{ width: 1200, height: 1200 }, { width: 101600, height: 101600 }, false],
+    [{ width: 1200, height: 1800 }, { width: 101600, height: 152400 }, false],
+    [{ width: 1800, height: 1200 }, { width: 152400, height: 101600 }, true],
+  ]) {
+    f.adapter.readStrip = async () => ({ jpeg, size });
+    f.service.start(printRequest());
+    await flush();
+    const submitted = f.submissions.at(-1);
+    assert.deepEqual(submitted.target, {
+      pageSize: { width: 101600, height: 152400 },
+      images: 1,
+    });
+    assert.equal((submitted.html.match(/<img /g) || []).length, 1);
+    assert.equal(submitted.html.includes('class="rotated"'), rotated);
+    assert.deepEqual(printGeometry('double-strip', size).photoSize, photoSize);
+    assert.equal(f.service.activity().job.stripsPerSheet, 1);
+  }
+  assert.deepEqual(
+    printGeometry('single-strip', { width: 900, height: 900 }).photoSize,
+    {
+      width: 50800,
+      height: 50800,
+    },
+  );
 });
 
 test('one request prints once; concurrent and replayed requests cannot duplicate jobs', async (t) => {
@@ -271,7 +301,7 @@ test('preparation deadline prevents printing a late image', async (t) => {
   await flush();
   t.mock.timers.tick(15000);
   await flush();
-  pending.resolve(jpeg);
+  pending.resolve(stripImage);
   await flush();
   assert.equal(f.submissions.length, 0);
   assert.equal(f.service.activity().job.status, 'failed');
@@ -323,7 +353,7 @@ test('closing VYORA during preparation cannot send a late job', async (t) => {
   f.service.start(printRequest());
   await flush();
   f.service.dispose();
-  pending.resolve(jpeg);
+  pending.resolve(stripImage);
   await flush();
   assert.equal(f.submissions.length, 0);
   assert.throws(() => f.service.start(printRequest()), /shutting down/);

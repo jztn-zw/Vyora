@@ -3,6 +3,7 @@ import type { StripRecord } from '@vyora/shared';
 import { stripPreviewUrl } from './photo-strip';
 import './strip-viewer.css';
 import { StripPrint } from './StripPrint';
+import type { ImageSize } from './printing/print-layout';
 
 export function StripViewer({
   strip,
@@ -28,6 +29,7 @@ export function StripViewer({
     () => strip.preview || stripPreviewUrl(strip),
   );
   const [loading, setLoading] = useState(true);
+  const [imageSize, setImageSize] = useState<ImageSize | null>(null);
   const [error, setError] = useState('');
   const [actionError, setActionError] = useState('');
   const [acting, setActing] = useState(false);
@@ -59,7 +61,13 @@ export function StripViewer({
         const image = new Image();
         image.src = fullSize;
         await image.decode();
-        if (!cancelled) setSource(fullSize);
+        if (!cancelled) {
+          setSource(fullSize);
+          setImageSize({
+            width: image.naturalWidth,
+            height: image.naturalHeight,
+          });
+        }
       } catch {
         if (!cancelled) {
           setError(
@@ -182,6 +190,7 @@ export function StripViewer({
           <footer className="strip-viewer-footer">
             <StripPrint
               stripId={strip.id}
+              imageSize={loading || error ? null : imageSize}
               settingsRevision={printerRevision}
               onSettings={onPrinterSettings}
               onPaperLayout={onPaperLayout}

@@ -18,7 +18,7 @@
   outline-offset: 4px;
   border-radius: 3px;
 }
-.camera-help-dialog {
+.camera-dialog {
   width: min(580px, calc(100vw - 32px));
   max-height: calc(100dvh - 32px);
   padding: 4px;
@@ -29,21 +29,21 @@
   color: var(--ink);
   box-shadow: 0 24px 90px #0006;
 }
-.camera-help-dialog::backdrop {
+.camera-dialog::backdrop {
   background: #100b1899;
   backdrop-filter: blur(6px);
 }
-body:has(.camera-help-dialog[open]) {
+body:has(.camera-dialog[open]) {
   overflow: hidden;
 }
-.camera-help-shell {
+.camera-dialog-shell {
   display: flex;
   flex-direction: column;
   max-height: calc(100dvh - 42px);
   border-radius: 13px;
   overflow: hidden;
 }
-.camera-help-header {
+.camera-dialog-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -52,23 +52,23 @@ body:has(.camera-help-dialog[open]) {
   border-bottom: 1px solid var(--line);
   flex-shrink: 0;
 }
-.camera-help-header h2 {
+.camera-dialog-header h2 {
   margin: 0 0 6px;
   font-size: 23px;
   font-weight: 600;
   letter-spacing: -0.6px;
 }
-.camera-help-header p {
+.camera-dialog-header p {
   margin: 0;
   color: var(--muted);
   font-size: 11px;
 }
-.camera-help-header .outline-button {
+.camera-dialog-header .outline-button {
   min-width: 80px;
   min-height: 40px;
   flex-shrink: 0;
 }
-.camera-help-content {
+.camera-dialog-content {
   min-height: 0;
   padding: 24px;
   overflow-y: auto;
@@ -79,24 +79,24 @@ body:has(.camera-help-dialog[open]) {
   line-height: 1.75;
   --scroll-track: var(--paper);
 }
-.camera-help-content::-webkit-scrollbar-track {
+.camera-dialog-content::-webkit-scrollbar-track {
   margin-block: 10px;
 }
-.camera-help-content section + section {
+.camera-dialog-content section + section {
   margin-top: 20px;
   padding-top: 20px;
   border-top: 1px solid var(--line);
 }
-.camera-help-content h3 {
+.camera-dialog-content h3 {
   margin: 0 0 7px;
   color: var(--ink);
   font-size: 14px;
   font-weight: 600;
 }
-.camera-help-content p {
+.camera-dialog-content p {
   margin: 0;
 }
-.camera-help-content strong {
+.camera-dialog-content strong {
   color: var(--ink);
   font-weight: 600;
 }
@@ -112,8 +112,8 @@ body:has(.camera-help-dialog[open]) {
   margin-top: 5px;
 }
 @media (max-width: 700px) {
-  .camera-help-header,
-  .camera-help-content {
+  .camera-dialog-header,
+  .camera-dialog-content {
     padding: 18px;
   }
 }

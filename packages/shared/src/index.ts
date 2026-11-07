@@ -101,6 +101,8 @@ export interface PaperRecord {
 export interface SheetQueueItem {
   id: string;
   stripId: string;
+  /** Fitted print dimensions in microns. Older entries use a 2 × 6 slot. */
+  size?: { width: number; height: number };
 }
 export interface SheetPlacement extends PaperRect {
   queueId: string;

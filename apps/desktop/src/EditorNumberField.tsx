@@ -47,7 +47,6 @@ export function EditorNumberField({
       >
         <NumberInput
           id={id}
-          wrapperClassName="template-area-count-stepper"
           stepLabel={label}
           min={min}
           max={max}

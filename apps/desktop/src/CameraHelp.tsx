@@ -18,7 +18,7 @@ export function CameraHelp({ onClose }: { onClose: () => void }) {
   return (
     <dialog
       ref={dialog}
-      className="camera-help-dialog"
+      className="camera-dialog"
       aria-labelledby="camera-help-title"
       aria-describedby="camera-help-description"
       onCancel={(event) => {
@@ -38,8 +38,8 @@ export function CameraHelp({ onClose }: { onClose: () => void }) {
           close();
       }}
     >
-      <div className="camera-help-shell">
-        <header className="camera-help-header">
+      <div className="camera-dialog-shell">
+        <header className="camera-dialog-header">
           <div>
             <h2 id="camera-help-title">Camera help</h2>
             <p id="camera-help-description">Choose how you want to connect.</p>
@@ -53,7 +53,7 @@ export function CameraHelp({ onClose }: { onClose: () => void }) {
             Close
           </button>
         </header>
-        <div className="camera-help-content">
+        <div className="camera-dialog-content">
           <section>
             <h3>Built-in or USB webcam</h3>
             <p>
@@ -83,6 +83,7 @@ export function CameraHelp({ onClose }: { onClose: () => void }) {
               For a compatible tethered camera, install digiCamControl on this
               computer. Select your camera there, enable its web server and
               confirm that live view and JPEG capture work. In VYORA, open{' '}
+              <strong>Studio tools</strong> (⋯) →{' '}
               <strong>Capture & lighting</strong>, choose{' '}
               <strong>Tethered camera</strong>, then enable the camera.
             </p>

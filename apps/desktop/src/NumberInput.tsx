@@ -4,15 +4,11 @@ import type { InputHTMLAttributes } from 'react';
 type NumberInputProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> & {
   stepLabel: string;
   onStep?: (direction: number) => void;
-  wrapperClassName?: string;
 };
 
 /** Shared native number input with theme-aware arrows; keeps native validation and keyboard input. */
 export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
-  function NumberInput(
-    { stepLabel, onStep, wrapperClassName = '', ...props },
-    forwardedRef,
-  ) {
+  function NumberInput({ stepLabel, onStep, ...props }, forwardedRef) {
     const input = useRef<HTMLInputElement>(null);
     useImperativeHandle(forwardedRef, () => input.current!);
     const numeric =
@@ -36,7 +32,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
         element.dispatchEvent(new Event('input', { bubbles: true }));
     }
     return (
-      <span className={`number-input ${wrapperClassName}`}>
+      <span className="number-input">
         <input
           {...props}
           ref={input}

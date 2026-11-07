@@ -6,10 +6,28 @@ import type {
   SheetPlacement,
   CustomPaperProfile,
 } from '@vyora/shared';
-import { PrintError, validateCustomProfile } from './print-layout.ts';
+import {
+  PrintError,
+  STRIP_HEIGHT,
+  STRIP_WIDTH,
+  validateCustomProfile,
+} from './print-layout.ts';
+import type { ImageSize } from './print-layout.ts';
 
-export const STRIP_WIDTH = 50800;
-export const STRIP_HEIGHT = 152400;
+export { STRIP_WIDTH, STRIP_HEIGHT };
+
+export function queuePhotoSize(item: SheetQueueItem): ImageSize {
+  return item.size ?? { width: STRIP_WIDTH, height: STRIP_HEIGHT };
+}
+
+export function validSheetPhotoSize(size: ImageSize | undefined): boolean {
+  return (
+    !!size &&
+    [size.width, size.height].every((n) => Number.isInteger(n) && n > 0) &&
+    Math.min(size.width, size.height) <= 2 * STRIP_WIDTH &&
+    Math.max(size.width, size.height) <= STRIP_HEIGHT
+  );
+}
 export const paperPresets = {
   'long-bond': {
     width: 215900,
@@ -125,8 +143,13 @@ function pack(
   const s = paper.spec;
   const occupied = [...paper.used, ...paper.blocked];
   const placements: SheetPlacement[] = [];
+  const noRoom = new Set<string>();
   // Candidate edges avoid a pixel-sized scan and accommodate marked rectangles.
-  for (const item of items.slice(0, 16)) {
+  for (const item of items) {
+    if (placements.length >= Math.min(16, 100 - paper.used.length)) break;
+    const size = queuePhotoSize(item);
+    const sizeKey = `${size.width}×${size.height}`;
+    if (noRoom.has(sizeKey)) continue;
     const xs = [
       ...new Set([s.margin, ...occupied.map((r) => r.x + r.width + s.gap)]),
     ].sort((a, b) => a - b);
@@ -139,8 +162,8 @@ function pack(
         for (const rotated of mixed
           ? [preferredRotation, !preferredRotation]
           : [preferredRotation]) {
-          const width = rotated ? STRIP_HEIGHT : STRIP_WIDTH;
-          const height = rotated ? STRIP_WIDTH : STRIP_HEIGHT;
+          const width = rotated ? size.height : size.width;
+          const height = rotated ? size.width : size.height;
           const rect = { x, y, width, height };
           if (
             x < s.margin ||
@@ -164,7 +187,7 @@ function pack(
       }
       if (placed) break;
     }
-    if (!placed) break;
+    if (!placed) noRoom.add(sizeKey);
   }
   return placements;
 }
@@ -175,7 +198,7 @@ export function arrangePaper(
   validatePaperSpec(paper.spec);
   validateAreas(paper.used, paper.spec);
   validateAreas(paper.blocked, paper.spec);
-  const bounded = items.slice(0, Math.max(0, 100 - paper.used.length));
+  const bounded = items.slice(0, 100);
   const options = [
     pack(paper, bounded, false),
     pack(paper, bounded, true),
@@ -205,8 +228,7 @@ export function validatePlacements(
       !validUuid(p.stripId) ||
       ids.has(p.queueId) ||
       typeof p.rotated !== 'boolean' ||
-      p.width !== (p.rotated ? STRIP_HEIGHT : STRIP_WIDTH) ||
-      p.height !== (p.rotated ? STRIP_WIDTH : STRIP_HEIGHT) ||
+      !validSheetPhotoSize(p) ||
       p.x < s.margin ||
       p.y < s.margin ||
       p.x + p.width > s.width - s.margin ||
@@ -214,7 +236,7 @@ export function validatePlacements(
       occupied.some((r) => overlaps(p, r, s.gap))
     )
       throw new PrintError(
-        'A strip overlaps another area or does not fit at 2 × 6 inches.',
+        'A photo overlaps another area or does not fit on the sheet.',
       );
     ids.add(p.queueId);
     occupied.push(p);
@@ -245,14 +267,17 @@ export function sheetDocument(
       const previous = seen.get(p.stripId);
       const imageId = `paper-image-${i}`;
       seen.set(p.stripId, previous || imageId);
-      const img = `<img alt="VYORA photo strip" ${previous ? `data-copy-of="${previous}"` : `id="${imageId}" src="${source}"`} class="${p.rotated ? 'rotated' : ''}">`;
+      const rotation = p.rotated
+        ? ` class="rotated" style="width:${mm(p.height)}mm;height:${mm(p.width)}mm"`
+        : '';
+      const img = `<img alt="VYORA photo" ${previous ? `data-copy-of="${previous}"` : `id="${imageId}" src="${source}"`}${rotation}>`;
       return `<div class="strip" style="left:${mm(p.x)}mm;top:${mm(p.y)}mm;width:${mm(p.width)}mm;height:${mm(p.height)}mm">${img}${paper.spec.guides ? '<i class="cut"></i>' : ''}</div>`;
     })
     .join('');
   return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'none'; base-uri 'none'; form-action 'none'"><title>VYORA print sheet</title><style>
 @page{size:${mm(paper.spec.width)}mm ${mm(paper.spec.height)}mm;margin:0}
 *{box-sizing:border-box}html,body{margin:0;padding:0;width:${mm(paper.spec.width)}mm;height:${mm(paper.spec.height)}mm;overflow:hidden;background:white}
-.sheet{position:relative;width:100%;height:100%;break-inside:avoid}.strip{position:absolute}img{display:block;width:100%;height:100%;object-fit:contain}img.rotated{position:absolute;width:50.8mm;height:152.4mm;left:50%;top:50%;transform:translate(-50%,-50%) rotate(90deg)}
+.sheet{position:relative;width:100%;height:100%;break-inside:avoid}.strip{position:absolute}img{display:block;width:100%;height:100%;object-fit:contain}img.rotated{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(90deg)}
 .cut{position:absolute;inset:-0.7mm;border:0.15mm dashed #777;pointer-events:none}@media print{body{print-color-adjust:exact;-webkit-print-color-adjust:exact}}
 </style></head><body><main class="sheet">${content}</main></body></html>`;
 }

@@ -5,6 +5,8 @@ import type { PaperState } from '@vyora/shared';
 import { PrintError } from './print-layout.ts';
 import {
   validUuid,
+  queuePhotoSize,
+  validSheetPhotoSize,
   validatePaperSpec,
   validateAreas,
   validatePlacements,
@@ -61,7 +63,13 @@ export function validatePaperData(input: unknown): PaperData {
     validateAreas(p.used, p.spec);
   }
   for (const q of d.queue) {
-    if (!q || !validUuid(q.id) || !validUuid(q.stripId) || queueIds.has(q.id))
+    if (
+      !q ||
+      !validUuid(q.id) ||
+      !validUuid(q.stripId) ||
+      queueIds.has(q.id) ||
+      (q.size !== undefined && !validSheetPhotoSize(q.size))
+    )
       throw new PrintError('Invalid saved strip queue.');
     queueIds.add(q.id);
   }
@@ -102,9 +110,15 @@ export function validatePaperData(input: unknown): PaperData {
         throw new PrintError('Invalid saved batch placement.');
       local.add(p.queueId);
       if (['reserved', 'sent', 'check'].includes(b.status)) {
+        const item = d.queue.find(
+          (q) => q.id === p.queueId && q.stripId === p.stripId,
+        );
+        const size = item && queuePhotoSize(item);
         if (
           reserved.has(p.queueId) ||
-          !d.queue.some((q) => q.id === p.queueId && q.stripId === p.stripId)
+          !size ||
+          p.width !== (p.rotated ? size.height : size.width) ||
+          p.height !== (p.rotated ? size.width : size.height)
         )
           throw new PrintError('Invalid reserved queue entry.');
         reserved.add(p.queueId);

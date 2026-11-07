@@ -11,10 +11,12 @@ import {
   arrangePaper,
   checkPaperProfile,
   paperPresets,
+  queuePhotoSize,
   STRIP_HEIGHT,
   STRIP_WIDTH,
   validatePaperSpec,
 } from './printing/paper-layout';
+import { formatPrintSize } from './printing/print-layout';
 import { stripPreviewUrl } from './photo-strip';
 import { PaperMeasure } from './PaperMeasure';
 import { StudioSelect } from './StudioSelect';
@@ -174,19 +176,6 @@ export function PaperManager({
         : [],
     [paper, locked, pendingBatch, state?.queue],
   );
-  const capacity = useMemo(
-    () =>
-      paper
-        ? arrangePaper(
-            paper,
-            Array.from({ length: 16 }, (_, index) => ({
-              id: String(index),
-              stripId: '',
-            })),
-          ).length
-        : 0,
-    [paper],
-  );
   const sources = useMemo(
     () =>
       new Map(
@@ -313,9 +302,7 @@ export function PaperManager({
         <header className="printer-header">
           <div>
             <h2 id="paper-title">Paper & layout</h2>
-            <p>
-              Every strip stays 2 × 6 inches. Use the blank space that fits.
-            </p>
+            <p>Arrange photos at their fitted sizes in the remaining space.</p>
           </div>
           <button
             type="button"
@@ -625,10 +612,10 @@ export function PaperManager({
                           p.rotated ? (
                             <image
                               href={sources.get(p.stripId)}
-                              x={-STRIP_WIDTH / 2}
-                              y={-STRIP_HEIGHT / 2}
-                              width={STRIP_WIDTH}
-                              height={STRIP_HEIGHT}
+                              x={-p.height / 2}
+                              y={-p.width / 2}
+                              width={p.height}
+                              height={p.width}
                               transform={`translate(${p.x + p.width / 2} ${p.y + p.height / 2}) rotate(90)`}
                               preserveAspectRatio="xMidYMid meet"
                             />
@@ -773,7 +760,7 @@ export function PaperManager({
                         <small>
                           {reservedIds.has(q.id)
                             ? 'Reserved for the submitted sheet'
-                            : '2 × 6 inches'}
+                            : formatPrintSize(queuePhotoSize(q))}
                         </small>
                         <button
                           type="button"
@@ -862,11 +849,11 @@ export function PaperManager({
             <strong>
               {locked
                 ? 'Submitted positions are reserved'
-                : `${placements.length} queued strip${placements.length === 1 ? '' : 's'} on this sheet`}
+                : `${placements.length} queued print${placements.length === 1 ? '' : 's'} on this sheet`}
             </strong>
             <span>
               {paper
-                ? `${capacity} strips fit in the remaining space · all strips stay 2 × 6 inches`
+                ? `${Math.max(0, (state?.queue.length ?? 0) - placements.length)} remaining in the queue`
                 : 'Choose the paper you actually loaded.'}
             </span>
             {paper && (
@@ -914,8 +901,8 @@ function AreaEntry({
   const [area, setArea] = useState<PaperRect>({
     x: 0,
     y: 0,
-    width: 50800,
-    height: 152400,
+    width: STRIP_WIDTH,
+    height: STRIP_HEIGHT,
   });
   return (
     <div className="paper-area-entry">

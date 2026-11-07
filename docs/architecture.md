@@ -11,7 +11,8 @@ the active library; renderer callers cannot supply a filesystem path.
 
 Appearance is selected in the renderer with CSS theme tokens. The local
 `vyora.appearance` preference accepts only light, dark, or vyora and is applied
-before React mounts. A sender-checked, allowlisted `window:theme` operation keeps
+before React mounts. VYORA is the default for profiles without a saved theme.
+A sender-checked, allowlisted `window:theme` operation keeps
 Electron's native appearance and window background in sync. Theme changes do not
 change the captured image pixels or the exported template artwork.
 

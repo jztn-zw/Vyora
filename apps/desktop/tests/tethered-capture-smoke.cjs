@@ -186,10 +186,19 @@ app.whenReady().then(async () => {
     await run(
       "document.querySelector('.usage-notice-actions .primary-button').click()",
     );
-    await until("!!document.querySelector('.capture-equipment summary')");
+    await until("!!document.querySelector('.studio-tools summary')");
+    window.setContentSize(840, 600);
+    await run(
+      "document.querySelector('.studio-tools summary').click(); document.querySelector('.studio-tools-menu button[aria-haspopup=dialog]').click()",
+    );
+    await until("!!document.querySelector('dialog.capture-equipment[open]')");
+    assert.equal(
+      await run('document.activeElement.textContent.trim()'),
+      'Done',
+    );
     // Choose native capture using the same controls as an organizer.
     await run(
-      "document.querySelector('.capture-equipment summary').click(); document.querySelector('.capture-equipment .studio-select-trigger').click()",
+      "document.querySelector('.capture-equipment .studio-select-trigger').click()",
     );
     await until("!!document.querySelector('.capture-equipment [role=option]')");
     await run(
@@ -204,6 +213,22 @@ app.whenReady().then(async () => {
       ),
       'tethered',
     );
+    contents.invalidate();
+    await contents.capturePage();
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    writeFileSync(
+      path.join(artifacts, 'capture-lighting.png'),
+      (await contents.capturePage()).toPNG(),
+    );
+    await run(
+      "document.querySelector('.capture-equipment header button').click()",
+    );
+    await until("!document.querySelector('dialog.capture-equipment[open]')");
+    assert.equal(
+      await run("document.activeElement.matches('.studio-tools summary')"),
+      true,
+    );
+    window.setContentSize(1280, 900);
     await run("document.querySelector('.camera-connect button').click()");
     await until(
       "document.querySelector('.capture-button').textContent.includes('Take 4') && !document.querySelector('.capture-button').disabled",

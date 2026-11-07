@@ -1,5 +1,5 @@
 // Isolated form regression check: no printer access, camera or user library.
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, nativeTheme } = require('electron');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -21,7 +21,11 @@ app.whenReady().then(async () => {
         ok: true,
         value: callback?.(value),
       }));
-    handle('window:theme');
+    nativeTheme.themeSource = 'dark';
+    let requestedTheme;
+    handle('window:theme', (theme) => {
+      requestedTheme = theme;
+    });
     handle('guest:status', () => ({
       displays: [],
       displayId: null,
@@ -59,6 +63,10 @@ app.whenReady().then(async () => {
     });
     const wc = window.webContents;
     const run = (source) => wc.executeJavaScript(source);
+    const openTool = (name) =>
+      run(
+        `document.querySelector('.studio-tools summary').click(); Array.from(document.querySelectorAll('.studio-tools-menu button')).find(button=>button.querySelector('strong')?.textContent===${JSON.stringify(name)}).click()`,
+      );
     const until = async (source) => {
       const start = Date.now();
       while (Date.now() - start < 12000) {
@@ -72,6 +80,8 @@ app.whenReady().then(async () => {
       path.join(bundle, '.vite/renderer/main_window/index.html'),
     );
     await until("!!document.querySelector('.usage-notice-consent input')");
+    assert.equal(await run('document.documentElement.dataset.theme'), 'vyora');
+    assert.equal(requestedTheme, 'vyora');
     await run("document.querySelector('.usage-notice-consent input').click()");
     await until(
       "!document.querySelector('.usage-notice-actions .primary-button').disabled",
@@ -80,18 +90,77 @@ app.whenReady().then(async () => {
       "document.querySelector('.usage-notice-actions .primary-button').click()",
     );
     await until("!!document.querySelector('.studio-tools')");
-    await run(
-      "document.querySelector('.studio-tools summary').click(); Array.from(document.querySelectorAll('.studio-tools-menu button')).find(button=>button.textContent.includes('Printer settings')).click()",
+    // Hidden-window checks use the final palette, not a paused transition.
+    wc.debugger.attach('1.3');
+    await wc.debugger.sendCommand('Emulation.setFocusEmulationEnabled', {
+      enabled: true,
+    });
+    await wc.debugger.sendCommand('Emulation.setEmulatedMedia', {
+      features: [{ name: 'prefers-reduced-motion', value: 'reduce' }],
+    });
+    const enterKeyboardFocus = async () => {
+      wc.sendInputEvent({ type: 'keyDown', keyCode: 'Tab' });
+      wc.sendInputEvent({ type: 'keyUp', keyCode: 'Tab' });
+      await until("!!document.activeElement?.matches(':focus-visible')");
+    };
+    await enterKeyboardFocus();
+    const checkFocus = async (selector, visualSelector = selector) => {
+      assert.deepEqual(
+        await run(`(() => {
+          const control = document.querySelector(${JSON.stringify(selector)});
+          control.focus();
+          const visual = document.querySelector(${JSON.stringify(visualSelector)});
+          const style = getComputedStyle(visual);
+          return {
+            focused: document.activeElement === control,
+            outline: style.outlineStyle,
+            width: style.outlineWidth,
+            offset: style.outlineOffset,
+            shadow: style.boxShadow,
+            innerOutline: visual === control ? 'none' : getComputedStyle(control).outlineStyle,
+          };
+        })()`),
+        {
+          focused: true,
+          outline: 'solid',
+          width: '2px',
+          offset: '-2px',
+          shadow: 'none',
+          innerOutline: 'none',
+        },
+        selector,
+      );
+    };
+    await checkFocus('.studio-tools summary');
+    await checkFocus('.camera-picker summary');
+    assert.deepEqual(
+      await run(`(() => {
+        const input = document.querySelector('.mirror-control input');
+        input.focus();
+        return [getComputedStyle(input).outlineStyle, getComputedStyle(input.nextElementSibling).outlineStyle];
+      })()`),
+      ['none', 'solid'],
+      'The mirror toggle shows focus on its track only',
     );
+    await openTool('Printer settings');
     await until(
-      "!!document.querySelector('#printer-sheets') && !document.querySelector('#printer-sheets').disabled",
+      "!!document.querySelector('.printer-content .studio-select-trigger:not(:disabled)') && !!document.querySelector('#printer-sheets:not(:disabled)')",
+    );
+    await enterKeyboardFocus();
+    await checkFocus('.printer-content .studio-select-trigger');
+    await checkFocus('#printer-sheets', '.printer-quantity .number-input');
+    await checkFocus('button[aria-label="Increase Sheets per print"]');
+    assert.equal(
+      await run(
+        "getComputedStyle(document.querySelector('.printer-quantity .number-input')).outlineStyle",
+      ),
+      'none',
+      'Focus on an arrow does not also outline the numeric field',
     );
     await run(
       'document.querySelector(\'button[aria-label="Increase Sheets per print"]\').click()',
     );
-    await until(
-      "document.querySelector('#printer-sheets').value==='3' && document.querySelector('.printer-content').textContent.includes('3 sheets')",
-    );
+    await until("document.querySelector('#printer-sheets').value==='3'");
     await run(
       'document.querySelector(\'button[aria-label="Decrease Sheets per print"]\').click()',
     );
@@ -137,6 +206,11 @@ app.whenReady().then(async () => {
     await until(
       '!!document.querySelector(\'input[aria-label="Minimum width"]\')',
     );
+    await run("document.querySelector('.paper-profile').open=true");
+    await checkFocus(
+      'input[aria-label="Minimum width"]',
+      '.paper-profile .number-input:has(input[aria-label="Minimum width"])',
+    );
     assert.equal(
       await run(
         'document.querySelector(\'input[aria-label="Minimum width"]\').value',
@@ -144,17 +218,31 @@ app.whenReady().then(async () => {
       '0.01',
       'Decimal step persists in parent state after remount',
     );
-    // Hidden-window captures should show the final palette, not a paused transition.
-    wc.debugger.attach('1.3');
-    await wc.debugger.sendCommand('Emulation.setEmulatedMedia', {
-      features: [{ name: 'prefers-reduced-motion', value: 'reduce' }],
-    });
-    for (const theme of ['light', 'dark', 'vyora']) {
+    await run("document.querySelector('.printer-header button').click()");
+    for (const theme of ['light', 'vyora', 'dark']) {
+      await openTool('Appearance');
+      await until("!!document.querySelector('.appearance-dialog[open]')");
       await run(
         `Array.from(document.querySelectorAll('.theme-menu button')).find(button=>button.querySelector('strong')?.textContent==='${theme === 'vyora' ? 'VYORA' : theme === 'dark' ? 'Dark' : 'Light'}').click()`,
       );
       await until(`document.documentElement.dataset.theme==='${theme}'`);
-      await run("document.querySelector('.paper-profile').open=true");
+      assert.equal(
+        await run("localStorage.getItem('vyora.appearance')"),
+        theme,
+      );
+      await run("document.querySelector('.appearance-header button').click()");
+      await until("document.activeElement.matches('.studio-tools summary')");
+      await openTool('Printer settings');
+      await until(
+        "!!document.querySelector('#printer-sheets') && !document.querySelector('#printer-sheets').disabled",
+      );
+      await run("document.querySelectorAll('.printer-mode button')[1].click()");
+      await until(
+        "!!document.querySelector('.paper-profile input[type=checkbox]:not(:disabled)')",
+      );
+      await run(
+        "document.querySelector('.paper-profile').open=true; document.querySelector('.paper-profile input[type=checkbox]').click()",
+      );
       await until(
         'document.querySelector(\'input[aria-label="Minimum width"]\').getBoundingClientRect().height>0',
       );
@@ -166,9 +254,15 @@ app.whenReady().then(async () => {
         path.join(artifacts, `inputs-${theme}.png`),
         (await wc.capturePage()).toPNG(),
       );
+      await run("document.querySelector('.printer-header button').click()");
     }
+    await window.loadFile(
+      path.join(bundle, '.vite/renderer/main_window/index.html'),
+    );
+    await until("!!document.querySelector('.studio-tools')");
+    assert.equal(await run('document.documentElement.dataset.theme'), 'dark');
     console.log(
-      'PASS: numeric stepper updates parent state, respects bounds, preserves empty validation and decimal precision; input themes captured.',
+      'PASS: VYORA on first launch, Appearance via Studio tools, saved theme on reload, keyboard focus, and numeric input controls.',
     );
   } catch (error) {
     console.error(error);

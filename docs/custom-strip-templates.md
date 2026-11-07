@@ -6,8 +6,9 @@ In the booth settings, open **Frame**, then choose **Upload a template**.
 2. Review any automatically detected photo areas. The importer recognizes large,
    enclosed transparent openings and white rectangular photo boxes. It does not
    recognize arbitrary photographed faces or remove an opaque background.
-3. If areas were not detected, draw rectangles on the image or choose a 2-, 3-,
-   or 4-photo starter layout. Select an area directly on the image or in the capture
+3. If areas were not detected, draw four rectangles on the image. If the artwork
+   has extra openings, mark the four you want to use. Extra openings remain empty.
+   Select an area directly on the image or in the capture
    order list. Drag the area to move it. Hover near a corner until the resize
    cursor appears, then drag to resize. The corner targets are invisible, without
    square handles. Use the width and height fields to adjust one dimension precisely.

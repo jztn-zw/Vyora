@@ -5,7 +5,6 @@ import {
   NOTICE_REVISION,
   usageNotices,
 } from './usage-notice';
-import { readTheme } from './theme';
 import './usage-notice.css';
 
 function NoticeContent() {
@@ -38,12 +37,6 @@ export function NoticeGate({
   );
   const [checked, setChecked] = useState(false);
   const [storageError, setStorageError] = useState(false);
-  useEffect(() => {
-    document.documentElement.dataset.theme = readTheme(
-      { getItem: (key) => localStorage.getItem(key) },
-      matchMedia('(prefers-color-scheme: dark)').matches,
-    );
-  }, []);
   if (accepted) return children;
   return (
     <main className="usage-welcome">

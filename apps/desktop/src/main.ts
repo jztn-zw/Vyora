@@ -25,6 +25,7 @@ import { paperStateStore } from './printing/paper-store';
 import { StripRemovalService } from './storage/strip-removal';
 import { GuestHub } from './guest-hub';
 import { DigiCamBridge } from './tethered-bridge';
+import { DEFAULT_THEME } from './theme';
 import type { GuestSnapshot } from '@vyora/shared';
 
 app.setName('VYORA');
@@ -96,13 +97,19 @@ function trustedUrl(value: string | undefined) {
   }
 }
 
+const themeBackgrounds = {
+  light: '#fafafa',
+  dark: '#131217',
+  vyora: '#f7f3fc',
+};
+
 async function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 960,
     minWidth: 1040,
     minHeight: 740,
-    backgroundColor: nativeTheme.shouldUseDarkColors ? '#131217' : '#fafafa',
+    backgroundColor: themeBackgrounds[DEFAULT_THEME],
     autoHideMenuBar: true,
     title: 'VYORA',
     icon: app.isPackaged
@@ -217,12 +224,15 @@ app
           if ((await stat(filename)).size > 20 * 1024 * 1024)
             throw new PrintError('This strip is too large to print.');
           const jpeg = await readFile(filename);
-          if (
-            jpeg.length > 20 * 1024 * 1024 ||
-            nativeImage.createFromBuffer(jpeg).isEmpty()
-          )
+          if (jpeg.length > 20 * 1024 * 1024)
+            throw new PrintError('This strip is too large to print.');
+          const image = nativeImage.createFromBuffer(jpeg);
+          if (image.isEmpty())
             throw new PrintError('The saved strip image could not be read.');
-          return `data:image/jpeg;base64,${jpeg.toString('base64')}`;
+          return {
+            jpeg: `data:image/jpeg;base64,${jpeg.toString('base64')}`,
+            size: image.getSize(),
+          };
         },
         submit(html, settings, signal, onSubmitting, target) {
           return submitPrintWindow(
@@ -524,13 +534,7 @@ app
       if (input !== 'light' && input !== 'dark' && input !== 'vyora')
         throw new Error('Invalid appearance');
       nativeTheme.themeSource = input === 'dark' ? 'dark' : 'light';
-      mainWindow?.setBackgroundColor(
-        input === 'dark'
-          ? '#131217'
-          : input === 'vyora'
-            ? '#f7f3fc'
-            : '#fafafa',
-      );
+      mainWindow?.setBackgroundColor(themeBackgrounds[input]);
     });
     handle('library:read', () => ({
       ...library!.read(),

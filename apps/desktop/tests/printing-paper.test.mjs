@@ -33,6 +33,7 @@ import {
 import { submitPrintWindow } from '../src/printing/print-window.ts';
 
 const jpeg = 'data:image/jpeg;base64,/9j/2Q==';
+const stripImage = { jpeg, size: { width: 600, height: 1800 } };
 const settings = { deviceName: 'Epson-test', layout: 'sheet', copies: 1 };
 const spec = (kind = 'long-bond') => ({
   kind,
@@ -85,7 +86,7 @@ async function fixture(t, data = emptyPaperData()) {
       return f.devices;
     },
     async readStrip() {
-      return jpeg;
+      return stripImage;
     },
     async submit(html, config, signal, submitting, target) {
       assert.ok(
@@ -318,6 +319,70 @@ test('printed result consumes only reserved queue entries and protects used posi
   );
 });
 
+test('the sheet queue persists fitted photo sizes and reserves the same boxes shown in preview', async (t) => {
+  const f = await fixture(t);
+  const p = await f.create();
+  await f.add();
+  f.adapter.readStrip = async () => ({
+    jpeg,
+    size: { width: 1200, height: 1200 },
+  });
+  await f.add();
+  const queued = validatePaperData(f.data).queue;
+  assert.deepEqual(
+    queued.map((item) => item.size),
+    [
+      { width: 50800, height: 152400 },
+      { width: 101600, height: 101600 },
+    ],
+  );
+  const preview = arrangePaper(p, queued);
+  assert.equal(preview.length, 2);
+  await f.print(p);
+  await settle(f);
+  const [batch] = validatePaperData(f.data).batches;
+  assert.deepEqual(batch.placements, preview);
+  assert.equal(f.submissions[0].target.images, 2);
+  const resolved = await f.service.resolve({
+    batchId: batch.id,
+    result: 'printed',
+  });
+  assert.deepEqual(
+    resolved.papers[0].used,
+    preview.map(({ x, y, width, height }) => ({ x, y, width, height })),
+  );
+});
+
+test('packing skips oversized photos and renders rotated photo boxes at their own dimensions', () => {
+  const p = paper();
+  p.spec = {
+    kind: 'custom',
+    width: 110000,
+    height: 160000,
+    margin: 0,
+    gap: 0,
+    guides: false,
+  };
+  const [oversized, landscape] = queue(2);
+  // The first image cannot fit on a narrower piece, but a narrow strip can.
+  oversized.size = { width: 101600, height: 101600 };
+  assert.equal(
+    arrangePaper({ ...p, spec: { ...p.spec, width: 70000 } }, [
+      oversized,
+      { ...landscape },
+    ])[0].queueId,
+    landscape.id,
+  );
+  landscape.size = { width: 152400, height: 101600 };
+  const placements = arrangePaper(p, [landscape]);
+  assert.equal(placements.length, 1);
+  assert.equal(placements[0].rotated, true);
+  assert.match(
+    sheetDocument(p, placements, new Map([[landscape.stripId, jpeg]])),
+    /class="rotated" style="width:152\.4mm;height:101\.6mm"/,
+  );
+});
+
 for (const result of ['blank', 'spoiled'])
   test(`${result} resolution retains queue with conservative paper occupancy`, async (t) => {
     const f = await fixture(t);
@@ -345,7 +410,7 @@ test('preparation failure releases reservation; post-submission failure needs op
   await settle(f);
   assert.equal((await f.service.state()).batches[0].status, 'released');
   assert.equal(f.submissions.length, 0);
-  f.adapter.readStrip = async () => jpeg;
+  f.adapter.readStrip = async () => stripImage;
   f.adapter.submit = async (_h, _c, _s, submitting) => {
     submitting();
     throw new PrintError('rejected');

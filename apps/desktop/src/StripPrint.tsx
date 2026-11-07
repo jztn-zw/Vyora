@@ -1,14 +1,22 @@
 import { useEffect, useRef, useState } from 'react';
 import type { PrinterState } from '@vyora/shared';
+import {
+  formatPrintSize,
+  printGeometry,
+  sheetPhotoSize,
+  type ImageSize,
+} from './printing/print-layout';
 import './printer.css';
 
 export function StripPrint({
   stripId,
+  imageSize,
   settingsRevision,
   onSettings,
   onPaperLayout,
 }: {
   stripId: string;
+  imageSize: ImageSize | null;
   settingsRevision: number;
   onSettings: () => void;
   onPaperLayout: () => void;
@@ -73,7 +81,7 @@ export function StripPrint({
   }, [settingsRevision]);
 
   async function print() {
-    if (inFlight.current) return;
+    if (inFlight.current || !imageSize) return;
     inFlight.current = true;
     setSending(true);
     setError('');
@@ -138,6 +146,11 @@ export function StripPrint({
       (device) => device.name === state!.settings!.deviceName,
     );
   const ownJob = state?.job?.stripId === stripId ? state.job : null;
+  const layout = state?.settings?.layout;
+  const geometry =
+    layout && layout !== 'sheet' && imageSize
+      ? printGeometry(layout, imageSize)
+      : null;
   const uncertain = state?.job?.status === 'uncertain';
   const message =
     error ||
@@ -157,6 +170,18 @@ export function StripPrint({
           : 'Choose a printer to print this strip.');
   return (
     <div className="strip-print">
+      {geometry && (
+        <p className="strip-print-size">
+          {formatPrintSize(geometry.photoSize)} photo · {geometry.columns} per{' '}
+          {formatPrintSize(geometry.pageSize)} sheet
+          {geometry.rotated ? ' · rotated to fit' : ''}
+        </p>
+      )}
+      {layout === 'sheet' && imageSize && (
+        <p className="strip-print-size">
+          {formatPrintSize(sheetPhotoSize(imageSize))} photo on the print sheet
+        </p>
+      )}
       {message && (
         <p role={error || ownJob?.status === 'failed' ? 'alert' : 'status'}>
           {message}
@@ -172,7 +197,11 @@ export function StripPrint({
             Paper & layout
           </button>
         )}
-        {(!configured || !detected || !!error || !!statusError) && (
+        {(layout !== 'sheet' ||
+          !configured ||
+          !detected ||
+          !!error ||
+          !!statusError) && (
           <button type="button" className="outline-button" onClick={onSettings}>
             Printer settings
           </button>
@@ -182,6 +211,7 @@ export function StripPrint({
           className="primary-button"
           disabled={
             sending ||
+            !imageSize ||
             (state?.settings?.layout === 'sheet'
               ? !configured
               : !detected || !!state?.busy || uncertain || !!statusError)
@@ -200,7 +230,7 @@ export function StripPrint({
                 ? 'Sending…'
                 : ownJob?.status === 'submitted'
                   ? 'Print another'
-                  : 'Print strip'}
+                  : 'Print photo'}
         </button>
       </div>
     </div>
