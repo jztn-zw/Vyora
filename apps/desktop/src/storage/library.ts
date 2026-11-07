@@ -104,7 +104,7 @@ export function createLibrary(directory: string, included?: IncludedTemplates) {
         photos: JSON.parse(String(saved.photos_json)) as StripRecord['photos'],
       };
     const rows = sessionPhotos.all(id);
-    if (!rows.length || rows.length > 4) throw new Error('Strip not found');
+    if (!rows.length || rows.length > 15) throw new Error('Strip not found');
     return {
       id,
       createdAt: String(rows[0].createdAt),
@@ -215,7 +215,7 @@ export function createLibrary(directory: string, included?: IncludedTemplates) {
       if (
         !validId.test(strip.id) ||
         strip.photos.length < 1 ||
-        strip.photos.length > 4 ||
+        strip.photos.length > 15 ||
         jpeg.length < 4 ||
         jpeg[0] !== 0xff ||
         jpeg[1] !== 0xd8 ||

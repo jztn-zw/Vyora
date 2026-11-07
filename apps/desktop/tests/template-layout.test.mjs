@@ -18,6 +18,11 @@ import {
 import { createFrameUpdates } from '../src/editor-frame-updates.ts';
 import { createStripSvg } from '../src/photo-strip.ts';
 import {
+  capturePhotoCount,
+  normalizePhotoSources,
+  photoSourceIndex,
+} from '../src/photo-sources.ts';
+import {
   emptyTemplateHistory,
   templateHistoryReducer as history,
 } from '../src/template-history.ts';
@@ -53,6 +58,69 @@ function draft() {
     layer: 'overlay',
   };
 }
+
+test('one through fifteen areas validate; repeated photo numbers reduce capture count and survive export', () => {
+  for (let count = 1; count <= 15; count++) {
+    const template = validateTemplate({
+      ...draft(),
+      slots: evenlySpacedSlots(count),
+    });
+    assert.equal(capturePhotoCount(template), count);
+  }
+  const areas = evenlySpacedSlots(15).map((slot, index) => ({
+    ...slot,
+    photoIndex: index % 3,
+  }));
+  const template = validateTemplate({ ...draft(), slots: areas });
+  assert.equal(capturePhotoCount(template), 3);
+  const photos = ['AQ==', 'Ag==', 'Aw=='].map((data, id) => ({
+    id: String(id),
+    thumbnail: `data:image/jpeg;base64,${data}`,
+  }));
+  const svg = createStripSvg({ template, photos });
+  for (const photo of photos)
+    assert.equal(svg.split(`href="${photo.thumbnail}"`).length - 1, 5);
+  assert.throws(() =>
+    validateTemplate({ ...draft(), slots: [...areas, areas[0]] }),
+  );
+  for (const photoIndex of [-1, 15, 1.2, NaN, Infinity])
+    assert.throws(() =>
+      validateTemplate({ ...draft(), slots: [{ ...areas[0], photoIndex }] }),
+    );
+  assert.throws(
+    () =>
+      validateTemplate({ ...draft(), slots: [{ ...areas[0], photoIndex: 2 }] }),
+    /gaps/,
+  );
+});
+
+test('deleting or linking areas compacts photo numbers and history restores the mapping', () => {
+  const slots = normalizePhotoSources(evenlySpacedSlots(3));
+  const linked = normalizePhotoSources(
+    slots.map((slot, index) => ({
+      ...slot,
+      photoIndex: index === 2 ? 0 : slot.photoIndex,
+    })),
+  );
+  assert.deepEqual(linked.map(photoSourceIndex), [0, 1, 0]);
+  const remaining = normalizePhotoSources(
+    linked.filter((_, index) => index !== 1),
+  );
+  assert.deepEqual(remaining.map(photoSourceIndex), [0, 0]);
+  let state = history(emptyTemplateHistory(), {
+    type: 'load',
+    draft: { ...draft(), slots },
+  });
+  state = history(state, {
+    type: 'edit',
+    update: { ...draft(), slots: linked },
+  });
+  assert.deepEqual(history(state, { type: 'undo' }).draft.slots, slots);
+  assert.deepEqual(
+    history(history(state, { type: 'undo' }), { type: 'redo' }).draft.slots,
+    linked,
+  );
+});
 
 test('layout undo/redo preserves ordering, frame position and template metadata', () => {
   const original = draft();
@@ -201,13 +269,14 @@ test('pasting preserves copied dimensions, leaves source unchanged and respects 
   }
 });
 
-test('repeated pastes remain distinct when space allows and stop at four areas', () => {
+test('repeated pastes stop at fifteen areas and preserve the source', () => {
   const source = { x: 0.1, y: 0.1, width: 0.3, height: 0.2 };
   let slots = [source];
   while (slots.length < 4) slots = pastePhotoArea(slots, source);
   assert.equal(new Set(slots.map((s) => `${s.x},${s.y}`)).size, 4);
+  while (slots.length < 15) slots = pastePhotoArea(slots, source);
   assert.equal(pastePhotoArea(slots, source), null);
-  assert.equal(slots.length, 4);
+  assert.equal(slots.length, 15);
 });
 
 test('pasting and cutting are independent undoable layout edits', () => {
@@ -270,7 +339,7 @@ test('area count changes preserve edited geometry and restore imported openings 
 });
 
 test('area count starter geometry stays bounded and invalid counts cannot change it', () => {
-  for (const count of [1, 2, 3, 4]) {
+  for (const count of [1, 2, 3, 4, 10, 15]) {
     const slots = resizePhotoAreaCount([], count);
     assert.equal(slots.length, count);
     for (const s of slots)
@@ -283,8 +352,8 @@ test('area count starter geometry stays bounded and invalid counts cannot change
           s.y + s.height <= 1,
       );
   }
-  for (const count of [-1, 5, 2.5, NaN])
-    assert.throws(() => resizePhotoAreaCount([], count), /0–4/);
+  for (const count of [-1, 16, 2.5, NaN])
+    assert.throws(() => resizePhotoAreaCount([], count), /0–15/);
 });
 
 test('reducing the area count can be undone with all previous positions restored', () => {
@@ -638,17 +707,17 @@ test('a transparent or white outside border is not a photo area', () => {
   assert.throws(() => detectPhotoSlots(new Uint8ClampedArray(1), 100, 100));
 });
 
-test('frames with extra openings require manual placement and preserve the frame position', () => {
+test('frames with five or six openings are detected and preserve the frame position', () => {
   for (const [kind, layer, count] of [
     ['transparent', 'overlay', 5],
     ['white', 'background', 6],
   ]) {
     const { data, width, height } = pixels(kind, count);
     const result = detectPhotoSlots(data, width, height);
-    assert.equal(result.excessOpenings, count);
+    assert.equal(result.excessOpenings, undefined);
     assert.equal(result.layer, layer);
-    assert.equal(result.detected, false);
-    assert.deepEqual(result.slots, []);
+    assert.equal(result.detected, true);
+    assert.equal(result.slots.length, count);
   }
 });
 
@@ -659,7 +728,7 @@ test('template validation rejects executable assets, invalid sizes and out-of-bo
     { frame: 'data:image/svg+xml,<svg/>' },
     { width: 10000 },
     { slots: [] },
-    { slots: evenlySpacedSlots(5) },
+    { slots: evenlySpacedSlots(16) },
     {
       slots: [
         { x: 0.9, y: 0, width: 0.5, height: 0.2 },

@@ -39,9 +39,43 @@ where the design and paper have different proportions. For example, Auto fit
 prints a square as 4 × 4 inches on a 4 × 6-inch sheet. The printer receives a
 single-sided page with the selected sheet count.
 
-No job is sent while opening settings, saving photos, or viewing strips. After a
+With auto-print off, no job is sent while opening settings, saving photos, or viewing strips. After a
 successful submission, **Print another** explicitly submits another job. Closing
 the preview does not cancel a job already sent to Windows.
+
+## Automatic event printing
+
+In **Start guest booth → Session settings → Auto-print**, enable **Print
+automatically** after saving a physical printer in Photo printer mode. It is off
+by default and stored with the printer settings. Full sheets stay manual because
+the operator must arrange and identify the loaded sheet. The configured layout,
+paper size and sheet count still apply.
+
+VYORA checks Windows-reported printer status before enabling, opening the booth,
+starting a new session, and submitting the print. Missing, offline, paused,
+error-state, unknown-status and known virtual/file printers cannot auto-print.
+Windows and drivers can report delayed or incomplete hardware status; this does
+not certify the cable, media supply or physical completion. Run a test print.
+
+After **Confirm & save strip**, the main process starts one automatic print from
+the saved JPEG. The operator and guest see **Sending your print…**, with no next
+group action while preparing/submitting. After Windows accepts the job, the screen
+says **Sent to the printer** and asks guests to collect their photos before **Next
+group**. That button releases the print screen; it does not claim hardware
+completion. Assisted mode also stays on this screen until the operator continues.
+
+A failure retains the saved photo and blocks the next session. Only the operator
+can open Printer settings, explicitly **Check & retry print** after a known failure,
+or acknowledge checking the physical print/Windows queue and continue without
+another print. Guests cannot retry or skip. An uncertain result never retries
+automatically; an outstanding native response keeps the printer locked. Repeated
+save callbacks do not submit another automatic job. Reloading the renderer restores
+the pending print screen from the main process. Closing/reopening the application
+never resumes an old automatic job; inspect the Windows queue before manually
+reprinting the saved photo.
+
+Readiness follows Electron's [platform-specific printer status](https://www.electronjs.org/docs/latest/api/structures/printer-info)
+and Windows [printer status flags](https://learn.microsoft.com/en-us/windows/win32/printdocs/printer-info-2).
 
 ## Ordinary printers and full sheets
 

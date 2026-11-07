@@ -17,6 +17,23 @@
   --control-hover-color: var(--ink);
 }
 
+body {
+  -webkit-user-select: none;
+  user-select: none;
+}
+input,
+textarea,
+[contenteditable=''],
+[contenteditable='true'],
+[contenteditable='plaintext-only'] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+img,
+a {
+  -webkit-user-drag: none;
+}
+
 /* Canvas handles and the transparent kiosk start surface keep their own interactions. */
 :root
   :is(
@@ -82,6 +99,11 @@
   border-color: var(--line);
   background: var(--paper);
   color: var(--ink);
+}
+:root .camera-off-button {
+  --control-hover-fill: transparent;
+  --control-hover-border: transparent;
+  --control-hover-color: var(--ink);
 }
 
 :root

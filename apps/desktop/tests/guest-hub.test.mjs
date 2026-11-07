@@ -41,6 +41,86 @@ test('guest commands reject invalid payloads and arbitrary actions', () => {
   ])
     assert.throws(() => parseGuestCommand(value));
 });
+
+test('guests cannot advance a pending or failed print or request a retry', async () => {
+  const commands = [];
+  const hub = new GuestHub('.', async (value) => commands.push(value));
+  for (const status of ['preparing', 'submitting', 'failed', 'uncertain']) {
+    hub.publish(state({ stage: 'printing', printJob: { status } }));
+    await assert.rejects(
+      hub.dispatch({ action: 'next', revision: hub.snapshot.revision }),
+    );
+  }
+  hub.publish(state({ stage: 'printing', printJob: { status: 'submitted' } }));
+  await hub.dispatch({ action: 'next', revision: hub.snapshot.revision });
+  assert.equal(commands.length, 1);
+  assert.throws(() =>
+    parseGuestCommand({ action: 'retry-print', revision: 1 }),
+  );
+  hub.dispose();
+});
+test('guest retakes accept fifteen photos and reject requests above the capture limit', () => {
+  const photoIds = Array.from({ length: 15 }, (_, index) => `photo-${index}`);
+  assert.deepEqual(
+    parseGuestCommand({ action: 'retake', revision: 1, photoIds }).photoIds,
+    photoIds,
+  );
+  assert.throws(() =>
+    parseGuestCommand({
+      action: 'retake',
+      revision: 1,
+      photoIds: [...photoIds, 'extra'],
+    }),
+  );
+});
+
+test('guest framing accepts only captured areas in an authorized review session', async () => {
+  const commands = [];
+  const hub = new GuestHub('.', async (command) => commands.push(command));
+  const change = {
+    stage: 'review',
+    areas: [{ photoIndex: 0, width: 300, height: 400 }],
+  };
+  const crop = { x: 0, y: 0.5, zoom: 1.4 };
+  hub.publish(state(change));
+  await hub.dispatch({
+    action: 'crop',
+    revision: hub.snapshot.revision,
+    areaIndex: 0,
+    crop,
+  });
+  assert.deepEqual(commands[0].crop, crop);
+  for (const extra of [
+    { stage: 'ready' },
+    { mode: 'assisted' },
+    { paused: true },
+    { busy: true },
+    { photos: [] },
+  ]) {
+    hub.publish(state({ ...change, ...extra }));
+    await assert.rejects(
+      hub.dispatch({
+        action: 'crop',
+        revision: hub.snapshot.revision,
+        areaIndex: 0,
+        crop,
+      }),
+    );
+  }
+  for (const areaIndex of [-1, 15, 1.5])
+    assert.throws(() =>
+      parseGuestCommand({ action: 'crop', revision: 1, areaIndex, crop }),
+    );
+  assert.throws(() =>
+    parseGuestCommand({
+      action: 'crop',
+      revision: 1,
+      areaIndex: 0,
+      crop: { ...crop, zoom: 5 },
+    }),
+  );
+  hub.dispose();
+});
 test('effects can change during review and accept only supported presets', async () => {
   const commands = [];
   const hub = new GuestHub('.', async (command) => commands.push(command));

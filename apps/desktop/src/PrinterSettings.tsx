@@ -238,6 +238,7 @@ export function PrinterSettings({
                   ...current,
                   layout: 'sheet',
                   copies: 1,
+                  autoPrint: false,
                 }))
               }
             >

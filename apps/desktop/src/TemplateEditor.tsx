@@ -22,8 +22,14 @@ import {
   clampPhotoSlotPosition,
   rotatePhotoSlotInPlace,
   pointerRotationDelta,
-  validateFourPhotoTemplate,
+  validateTemplate,
 } from './template-layout';
+import {
+  MAX_PHOTO_AREAS,
+  capturePhotoCount,
+  normalizePhotoSources,
+  photoSourceIndex,
+} from './photo-sources';
 import type { PhotoAreaHandle } from './template-layout';
 import { FramePreview } from './FramePreview';
 import { EditorNumberField } from './EditorNumberField';
@@ -235,7 +241,13 @@ export function TemplateEditor({
   );
   useEffect(() => () => areaUpdates.clear(), [areaUpdates]);
   function setDraft(update: DraftUpdate) {
-    dispatchHistory({ type: 'edit', update });
+    dispatchHistory({
+      type: 'edit',
+      update: (current) => {
+        const next = typeof update === 'function' ? update(current) : update;
+        return next && { ...next, slots: normalizePhotoSources(next.slots) };
+      },
+    });
   }
   const [selected, setSelected] = useState(-1);
   const [copiedArea, setCopiedArea] = useState<PhotoSlot | null>(null);
@@ -406,10 +418,10 @@ export function TemplateEditor({
       setPreview(false);
       setNotice(
         loaded.detected.excessOpenings
-          ? `Found ${loaded.detected.excessOpenings} possible photo openings. Each strip uses 4 photos. Mark the four you want to use, or choose artwork with four openings.`
+          ? 'More openings were found than this frame supports. Draw the areas you want to use.'
           : loaded.detected.detected
             ? `${loaded.detected.slots.length} photo areas detected. Check their edges and order before saving.`
-            : 'No clear photo areas detected. Draw four areas on the image.',
+            : 'No clear photo areas detected. Draw areas on the image.',
       );
     } catch (cause) {
       setError(
@@ -544,7 +556,7 @@ export function TemplateEditor({
         slot &&
         slot.width >= 0.02 &&
         slot.height >= 0.02 &&
-        draft.slots.length < 4
+        draft.slots.length < MAX_PHOTO_AREAS
       ) {
         setDraft({ ...draft, slots: [...draft.slots, slot] });
         setSelected(draft.slots.length);
@@ -614,7 +626,13 @@ export function TemplateEditor({
     );
   }
   function startDrawing() {
-    if (!draft || draft.slots.length >= 4 || busy || saving || gesture.current)
+    if (
+      !draft ||
+      draft.slots.length >= MAX_PHOTO_AREAS ||
+      busy ||
+      saving ||
+      gesture.current
+    )
       return;
     setSelected(-1);
     setPreview(false);
@@ -628,7 +646,7 @@ export function TemplateEditor({
       !draft ||
       !Number.isInteger(count) ||
       count < 0 ||
-      count > 4 ||
+      count > MAX_PHOTO_AREAS ||
       count === draft.slots.length ||
       busy ||
       saving ||
@@ -727,7 +745,10 @@ export function TemplateEditor({
       pan.current
     )
       return;
-    setCopiedArea({ ...draft.slots[selected] });
+    setCopiedArea({
+      ...draft.slots[selected],
+      photoIndex: photoSourceIndex(draft.slots[selected], selected),
+    });
     if (cut) removeSelectedArea();
     setNotice(
       cut
@@ -738,10 +759,13 @@ export function TemplateEditor({
   function pasteArea(source = copiedArea) {
     if (!draft || !source || busy || saving || gesture.current || pan.current)
       return;
-    const slots = pastePhotoArea(draft.slots, source);
+    const slots = pastePhotoArea(draft.slots, {
+      ...source,
+      photoIndex: source.photoIndex ?? selected,
+    });
     if (!slots) {
       setNotice(
-        'This frame already has 4 photo areas. Remove an area before pasting.',
+        'Maximum of 15 photo areas reached. Remove an area before pasting.',
       );
       return;
     }
@@ -782,7 +806,7 @@ export function TemplateEditor({
   async function save() {
     setError('');
     try {
-      const value = validateFourPhotoTemplate(draft);
+      const value = validateTemplate(draft);
       setSaving(true);
       const result = initialTemplate
         ? await window.vyora.updateTemplate(initialTemplate.id, value)
@@ -875,7 +899,7 @@ export function TemplateEditor({
           if (
             !event.repeat &&
             draft &&
-            draft.slots.length === 4 &&
+            draft.slots.length > 0 &&
             !busy &&
             !saving &&
             !gesture.current &&
@@ -911,7 +935,7 @@ export function TemplateEditor({
           !pan.current
         ) {
           const area = Number(key) - 1;
-          if (['v', 'r', 'h', 'f'].includes(key) || /^[1-4]$/.test(key)) {
+          if (['v', 'r', 'h', 'f'].includes(key) || /^[1-9]$/.test(key)) {
             event.preventDefault();
             event.stopPropagation();
             if (key === 'f') fitView();
@@ -1082,7 +1106,11 @@ export function TemplateEditor({
                       Keyboard active
                     </span>
                   </strong>
-                  <span>{draft.slots.length} of 4 photo areas</span>
+                  <span>
+                    {draft.slots.length === MAX_PHOTO_AREAS
+                      ? 'Maximum of 15 photo areas reached'
+                      : `${draft.slots.length} photo areas`}
+                  </span>
                 </div>
                 <div
                   className="template-view-tabs"
@@ -1130,7 +1158,9 @@ export function TemplateEditor({
                   <button
                     type="button"
                     aria-pressed={tool === 'draw' && !preview}
-                    disabled={busy || saving || draft.slots.length >= 4}
+                    disabled={
+                      busy || saving || draft.slots.length >= MAX_PHOTO_AREAS
+                    }
                     onClick={startDrawing}
                     title="Draw a rectangle for a new photo area (R)"
                     aria-label="Draw photo area"
@@ -1308,7 +1338,7 @@ export function TemplateEditor({
                         return;
                       event.preventDefault();
                       setSelected(-1);
-                      if (draft.slots.length >= 4) return;
+                      if (draft.slots.length >= MAX_PHOTO_AREAS) return;
                       event.currentTarget.setPointerCapture(event.pointerId);
                       gesture.current = {
                         kind: 'draw',
@@ -1351,7 +1381,7 @@ export function TemplateEditor({
                             adjustWithKeyboard(event, index, 'move')
                           }
                         />
-                        <b>{index + 1}</b>
+                        <b>{photoSourceIndex(slot, index) + 1}</b>
                         {selected === index && (
                           <button
                             type="button"
@@ -1433,7 +1463,7 @@ export function TemplateEditor({
               </div>
               <p className="template-draw-hint">
                 {tool === 'draw'
-                  ? 'Drag a rectangle over a photo opening. Mark 4 photo areas for each frame.'
+                  ? 'Drag a rectangle over a photo opening.'
                   : selected >= 0
                     ? `Photo ${selected + 1} selected. Drag to move or use the handles to resize.`
                     : preview
@@ -1470,7 +1500,7 @@ export function TemplateEditor({
                     label="Number of areas"
                     value={draft.slots.length}
                     min={0}
-                    max={4}
+                    max={MAX_PHOTO_AREAS}
                     step={1}
                     describedBy="template-area-count-hint"
                     onChange={changeAreaCount}
@@ -1489,9 +1519,42 @@ export function TemplateEditor({
                   id="template-area-count-hint"
                   className="template-count-hint"
                 >
-                  Mark 4 areas to save. The down arrow removes the last area.
-                  Undo restores it.
+                  The down arrow removes the last area. Undo restores it.
                 </p>
+                <EditorNumberField
+                  label="Photo to use"
+                  value={
+                    selectedArea
+                      ? photoSourceIndex(selectedArea, selected) + 1
+                      : null
+                  }
+                  min={1}
+                  max={Math.min(MAX_PHOTO_AREAS, capturePhotoCount(draft) + 1)}
+                  step={1}
+                  disabled={!selectedArea}
+                  onChange={(value) => {
+                    if (!selectedArea || !Number.isInteger(value)) return;
+                    updateArea(selected, {
+                      ...selectedArea,
+                      photoIndex: value - 1,
+                    });
+                  }}
+                />
+                <p className="template-count-hint">
+                  Areas with the same photo number use the same capture. This
+                  frame takes {capturePhotoCount(draft)} photo
+                  {capturePhotoCount(draft) === 1 ? '' : 's'}.
+                </p>
+                <button
+                  type="button"
+                  className="outline-button"
+                  disabled={
+                    !selectedArea || draft.slots.length >= MAX_PHOTO_AREAS
+                  }
+                  onClick={() => selectedArea && pasteArea(selectedArea)}
+                >
+                  Duplicate area
+                </button>
               </fieldset>
               <fieldset disabled={saving || busy || !draft.slots.length}>
                 <legend>Auto center</legend>
@@ -1599,7 +1662,7 @@ export function TemplateEditor({
                     ['Backspace / Delete', 'Remove selected area'],
                     ['Arrow keys', 'Move selected area'],
                     ['Shift + arrows', 'Move in larger steps'],
-                    ['1–4', 'Select a photo area'],
+                    ['1–9', 'Select a photo area'],
                     ['V / R / H', 'Select / draw / pan'],
                     ['F', 'Fit frame to canvas'],
                     ['[ / ]', 'Tilt selected area by 1°'],
@@ -1755,8 +1818,8 @@ export function TemplateEditor({
           <span>
             {!draft
               ? 'Start by importing a PNG or JPEG frame.'
-              : draft.slots.length !== 4
-                ? 'Mark 4 photo areas before saving.'
+              : draft.slots.length === 0
+                ? 'Mark a photo area before saving.'
                 : `${draft.slots.length} photo areas · Ready to save on this computer`}
           </span>
           <button
@@ -1766,7 +1829,7 @@ export function TemplateEditor({
               busy ||
               saving ||
               !!history.pending ||
-              draft.slots.length !== 4
+              draft.slots.length === 0
             }
             onClick={() => void save()}
           >

@@ -3,6 +3,8 @@ import { test } from 'node:test';
 import { randomUUID } from 'node:crypto';
 import { createSessionBuffer } from '../src/storage/session-buffer.ts';
 import { retakeTargets } from '../src/capture-review.ts';
+import { createStripSvg } from '../src/photo-strip.ts';
+import { evenlySpacedSlots } from '../src/template-layout.ts';
 
 function session(count = 4) {
   const buffer = createSessionBuffer();
@@ -67,6 +69,146 @@ test('choosing photos 3 and 1 replaces only those positions in capture order', (
     assert.equal(updated.photos[index].width, 1280);
     assert.equal(buffer.pending().photos[index].thumbnail, `new-${index}`);
   }
+});
+
+test('per-area positions survive pending recovery and source reads without modifying originals', () => {
+  const { buffer, id } = session();
+  const before = buffer.read(id);
+  buffer.setCrop(id, 0, { x: 0, y: 0.7, zoom: 2 });
+  buffer.setCrop(id, 1, { x: 1, y: 0, zoom: 1.2 });
+  const recovered = buffer.pending();
+  assert.deepEqual(recovered.photoCrops[0], { x: 0, y: 0.7, zoom: 2 });
+  assert.deepEqual(buffer.read(id).photoCrops, recovered.photoCrops);
+  assert.deepEqual(buffer.read(id).photos, before.photos);
+  recovered.photoCrops[0].x = 1;
+  assert.equal(
+    buffer.pending().photoCrops[0].x,
+    0,
+    'callers cannot mutate the buffer',
+  );
+  buffer.replace(
+    id,
+    before.photos[0].id,
+    Buffer.from('retake'),
+    { width: 640, height: 480 },
+    'new',
+  );
+  assert.deepEqual(buffer.pending().photoCrops[0], { x: 0.5, y: 0.5, zoom: 1 });
+  assert.deepEqual(buffer.pending().photoCrops[1], { x: 1, y: 0, zoom: 1.2 });
+  assert.throws(() => buffer.setCrop(randomUUID(), 0, { x: 0, y: 0, zoom: 1 }));
+  assert.throws(() => buffer.setCrop(id, 4, { x: 0, y: 0, zoom: 1 }));
+  assert.throws(() => buffer.setCrop(id, 0, { x: 0, y: 0, zoom: Infinity }));
+  buffer.clear(id);
+  assert.throws(() => buffer.setCrop(id, 0, { x: 0, y: 0, zoom: 1 }));
+});
+
+test('linked areas have independent crops and retaking their shared photo resets both positions', () => {
+  const buffer = createSessionBuffer();
+  const id = randomUUID();
+  const template = {
+    id: randomUUID(),
+    name: 'Linked frame',
+    width: 200,
+    height: 600,
+    frame: 'data:image/png;base64,aGVsbG8=',
+    layer: 'overlay',
+    slots: [0.05, 0.55].map((y) => ({
+      x: 0.1,
+      y,
+      width: 0.8,
+      height: 0.4,
+      photoIndex: 0,
+    })),
+  };
+  const record = buffer.stage(
+    id,
+    Buffer.from('photo'),
+    { width: 640, height: 480 },
+    'thumb',
+    template,
+  );
+  buffer.setCrop(id, 0, { x: 0, y: 0, zoom: 1.5 });
+  buffer.setCrop(id, 1, { x: 1, y: 1, zoom: 2 });
+  const svg = createStripSvg(buffer.read(id));
+  assert.equal((svg.match(/data-slot=/g) || []).length, 2);
+  assert.match(svg, /x="0" y="0" width="480" height="360"/);
+  assert.match(svg, /x="-480" y="-240" width="640" height="480"/);
+  buffer.replace(
+    id,
+    record.id,
+    Buffer.from('replacement'),
+    { width: 640, height: 480 },
+    'new',
+  );
+  assert.deepEqual(buffer.pending().photoCrops, [
+    { x: 0.5, y: 0.5, zoom: 1 },
+    { x: 0.5, y: 0.5, zoom: 1 },
+  ]);
+});
+
+test('fifteen areas can share one capture, and a retake updates all linked areas', () => {
+  const buffer = createSessionBuffer();
+  const id = randomUUID();
+  const template = {
+    id: randomUUID(),
+    name: 'Repeated portrait',
+    width: 720,
+    height: 2160,
+    frame: 'data:image/png;base64,aGVsbG8=',
+    layer: 'overlay',
+    slots: evenlySpacedSlots(15).map((slot) => ({ ...slot, photoIndex: 0 })),
+  };
+  const photo = buffer.stage(
+    id,
+    Buffer.from('first'),
+    { width: 640, height: 480 },
+    'thumb',
+    template,
+  );
+  assert.equal(buffer.pending().photos.length, 1);
+  assert.throws(() =>
+    buffer.stage(
+      id,
+      Buffer.from('extra'),
+      { width: 640, height: 480 },
+      'thumb',
+      template,
+    ),
+  );
+  buffer.replace(
+    id,
+    photo.id,
+    Buffer.from('retake'),
+    { width: 640, height: 480 },
+    'new',
+  );
+  const updated = buffer.read(id);
+  const source = updated.photos[0].thumbnail;
+  assert.equal(
+    createStripSvg(updated).split(`href="${source}"`).length - 1,
+    15,
+  );
+});
+
+test('a fifteen-capture frame stores all photos and bounds additional captures', () => {
+  const { buffer, id, template } = session(15);
+  assert.equal(buffer.read(id).photos.length, 15);
+  assert.throws(() =>
+    buffer.stage(
+      id,
+      Buffer.from('extra'),
+      { width: 640, height: 480 },
+      'thumb',
+      template,
+    ),
+  );
+  assert.equal(
+    retakeTargets(
+      buffer.read(id),
+      buffer.read(id).photos.map((photo) => photo.id),
+    ).length,
+    15,
+  );
 });
 
 test('retakes can be repeated and a stopped batch keeps all remaining originals', () => {

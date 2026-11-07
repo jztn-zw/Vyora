@@ -2,6 +2,14 @@ import { contextBridge, ipcRenderer } from 'electron';
 import type { DesktopApi } from '@vyora/shared';
 
 const api: DesktopApi = {
+  setAutoPrint: (enabled) =>
+    ipcRenderer.invoke('printer:auto-setting', enabled),
+  checkAutoPrint: () => ipcRenderer.invoke('printer:auto-check'),
+  retryAutoPrint: (id) => ipcRenderer.invoke('printer:auto-retry', id),
+  releaseAutoPrint: (id, checked) =>
+    ipcRenderer.invoke('printer:auto-release', { id, checked }),
+  setPhotoCrop: (id, areaIndex, crop) =>
+    ipcRenderer.invoke('session:crop', { id, areaIndex, crop }),
   connectTetheredCamera: (port) =>
     ipcRenderer.invoke('camera:tethered-connect', port),
   readTetheredPreview: (port) =>

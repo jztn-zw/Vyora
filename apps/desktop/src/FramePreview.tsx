@@ -7,6 +7,7 @@ import type {
 import { stripHeight, stripPreviewUrl } from './photo-strip';
 import { PhotoPlaceholder } from './PhotoPlaceholder';
 import { photoSlotTransform } from './template-layout';
+import { photoSourceIndex } from './photo-sources';
 
 /** Shared template artwork for organizer, studio and guest frame previews. */
 export const FramePreview = memo(function FramePreview({
@@ -97,7 +98,7 @@ export const FramePreview = memo(function FramePreview({
             height={slot.height * frame.height}
             overflow="hidden"
           >
-            <PhotoPlaceholder index={index} />
+            <PhotoPlaceholder index={photoSourceIndex(slot, index)} />
           </svg>
         </g>
       ))}

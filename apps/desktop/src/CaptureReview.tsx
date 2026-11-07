@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { PhotoEffect, StripRecord } from '@vyora/shared';
+import type { PhotoCrop, PhotoEffect, StripRecord } from '@vyora/shared';
 import { stripPreviewUrl } from './photo-strip';
 import { PhotoEffectPicker } from './PhotoEffectPicker';
-import { photoEffectFilter } from './photo-effects';
+import { DEFAULT_PHOTO_CROP, photoAreaViews } from './photo-framing';
+import { PhotoAreaImage } from './PhotoAreaImage';
+import { PhotoPositioner } from './PhotoPositioner';
 import { frameChoiceName } from './frame-choices';
 import './capture-review.css';
 
@@ -12,6 +14,7 @@ export function CaptureReview({
   effect,
   exporting,
   onEffectChange,
+  onCropChange,
   onContinue,
   timer,
   cameraReady,
@@ -28,6 +31,7 @@ export function CaptureReview({
   effect: PhotoEffect;
   exporting: boolean;
   onEffectChange: (effect: PhotoEffect) => void;
+  onCropChange: (areaIndex: number, crop: PhotoCrop) => Promise<void>;
   onContinue: () => void;
   timer: number;
   cameraReady: boolean;
@@ -44,9 +48,27 @@ export function CaptureReview({
   const [confirming, setConfirming] = useState(false);
   const saving = confirming || exporting;
   const [error, setError] = useState('');
+  const [draft, setDraft] = useState<{ index: number; crop: PhotoCrop } | null>(
+    null,
+  );
+  const areas = photoAreaViews(strip, total);
+  const displayedStrip = useMemo(
+    () =>
+      draft
+        ? {
+            ...strip,
+            photoCrops: photoAreaViews(strip, total).map((area, index) =>
+              index === draft.index
+                ? draft.crop
+                : (area.crop ?? DEFAULT_PHOTO_CROP),
+            ),
+          }
+        : strip,
+    [strip, total, draft],
+  );
   const preview = useMemo(
-    () => stripPreviewUrl(strip, effect),
-    [strip, effect],
+    () => stripPreviewUrl(displayedStrip, effect),
+    [displayedStrip, effect],
   );
   const remaining = total - strip.photos.length;
   useEffect(() => {
@@ -88,7 +110,8 @@ export function CaptureReview({
             </span>
             <h2 id="capture-review-title">Happy with your photos?</h2>
             <p>
-              Choose a look for your strip and retake any photos before saving.
+              Adjust your framing, choose a look, or retake photos before
+              saving.
             </p>
           </div>
           <button
@@ -167,10 +190,11 @@ export function CaptureReview({
                     )
                   }
                 >
-                  <img
-                    src={photo.thumbnail}
-                    style={{ filter: photoEffectFilter(effect) }}
-                    alt={`Captured photo ${index + 1}`}
+                  <PhotoAreaImage
+                    photo={photo}
+                    area={areas.find((area) => area.photoIndex === index)!}
+                    effect={effect}
+                    label={`Captured photo ${index + 1}, as framed`}
                   />
                   <span>
                     <strong>Photo {index + 1}</strong>
@@ -181,6 +205,14 @@ export function CaptureReview({
                 </button>
               ))}
             </div>
+            <PhotoPositioner
+              areas={areas}
+              photos={strip.photos}
+              effect={effect}
+              disabled={saving}
+              onApply={onCropChange}
+              onDraftChange={setDraft}
+            />
             <p className="capture-review-selection-note" role="status">
               {selected.length
                 ? `${selected.length} selected. Only these photos will be replaced, in their original positions.`
@@ -218,7 +250,11 @@ export function CaptureReview({
               type="button"
               className="outline-button"
               disabled={
-                !selected.length || !cameraReady || connecting || saving
+                !selected.length ||
+                !cameraReady ||
+                connecting ||
+                saving ||
+                !!draft
               }
               onClick={() => onRetake(selected)}
             >
@@ -229,6 +265,7 @@ export function CaptureReview({
               className="primary-button"
               disabled={
                 saving ||
+                !!draft ||
                 !!selected.length ||
                 (remaining > 0 && (!cameraReady || connecting))
               }

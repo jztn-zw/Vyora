@@ -21,10 +21,17 @@ and validates image input, creates a thumbnail, and owns SQLite and filesystem
 access. The renderer cannot choose arbitrary write paths, execute commands,
 or access database credentials. Audio access and external navigation are denied.
 
-Each session receives a UUID and at most four captured JPEGs are held in the main
+Each session receives a UUID and at most fifteen captured JPEGs are held in the main
 process's RAM buffer. No individual JPEGs or image thumbnails are persisted for
 new captures. Pending session previews can be restored after a renderer refresh,
 but closing the app or a process crash loses unsaved captures.
+
+Frame cropping is deferred until composition; template openings never replace the
+session's source JPEGs. Applied per-area positions and zoom are validated through
+the sender-checked preload bridge and kept with the RAM session. Live crop guides,
+review thumbnails, and composition share the same fit calculation. Linked areas
+can use different positions of one source; a retake resets every linked area's
+position. The final JPEG contains those crops and remains the source for printing.
 
 Schema version 3 adds a `strips` table. Schema version 4 adds a `templates` table
 and local normalized PNG frame files. Template import verifies image format,

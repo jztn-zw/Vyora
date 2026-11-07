@@ -10,6 +10,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { GuestCommand, GuestSnapshot } from '@vyora/shared';
 import { isPhotoEffect } from './photo-effects.ts';
+import { validatePhotoCrop } from './photo-framing.ts';
 
 export function parseGuestCommand(input: unknown): GuestCommand {
   const value = input as GuestCommand;
@@ -26,14 +27,19 @@ export function parseGuestCommand(input: unknown): GuestCommand {
       'confirm',
       'next',
       'effect',
+      'crop',
     ].includes(value.action) ||
     (value.action === 'effect' && !isPhotoEffect(value.effect)) ||
+    (value.action === 'crop' &&
+      (!Number.isInteger(value.areaIndex) ||
+        value.areaIndex! < 0 ||
+        value.areaIndex! >= 15)) ||
     (value.action === 'frame' &&
       (typeof value.frameId !== 'string' || value.frameId.length > 200)) ||
     (value.action === 'retake' &&
       (!Array.isArray(value.photoIds) ||
         !value.photoIds.length ||
-        value.photoIds.length > 4 ||
+        value.photoIds.length > 15 ||
         new Set(value.photoIds).size !== value.photoIds.length ||
         value.photoIds.some((id) => typeof id !== 'string' || id.length > 100)))
   ) {
@@ -45,6 +51,9 @@ export function parseGuestCommand(input: unknown): GuestCommand {
     effect: value.effect,
     frameId: value.frameId,
     photoIds: value.photoIds,
+    ...(value.action === 'crop'
+      ? { areaIndex: value.areaIndex, crop: validatePhotoCrop(value.crop) }
+      : {}),
   };
 }
 
@@ -175,17 +184,23 @@ export class GuestHub {
                 value.photoIds!.every((id) =>
                   state.photos.some((p) => p.id === id),
                 )
-              : value.action === 'effect'
+              : value.action === 'crop'
                 ? state.stage === 'review' &&
-                  value.effect !== (state.effect ?? 'original')
-                : value.action === 'continue'
+                  !!state.areas?.[value.areaIndex!] &&
+                  !!state.photos[state.areas[value.areaIndex!].photoIndex]
+                : value.action === 'effect'
                   ? state.stage === 'review' &&
-                    state.ready &&
-                    state.photos.length < state.total
-                  : value.action === 'confirm'
+                    value.effect !== (state.effect ?? 'original')
+                  : value.action === 'continue'
                     ? state.stage === 'review' &&
-                      state.photos.length === state.total
-                    : state.stage === 'done';
+                      state.ready &&
+                      state.photos.length < state.total
+                    : value.action === 'confirm'
+                      ? state.stage === 'review' &&
+                        state.photos.length === state.total
+                      : state.stage === 'done' ||
+                        (state.stage === 'printing' &&
+                          state.printJob?.status === 'submitted');
     if (!allowed) throw new Error('This action is not available at this step.');
     this.commandBusy = true;
     this.consumedRevision = value.revision;

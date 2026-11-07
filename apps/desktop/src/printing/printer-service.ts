@@ -22,6 +22,8 @@ import {
   validatePrintRequest,
 } from './print-layout.ts';
 import type { ImageSize } from './print-layout.ts';
+import { randomUUID } from 'node:crypto';
+import { requireAutoPrinter } from './printer-readiness.ts';
 
 export interface PrintAdapter {
   list(): Promise<PrinterDevice[]>;
@@ -67,6 +69,8 @@ export class PrinterService {
   private lastJob: PrintJob | null = null;
   private jobs = new Map<string, PrintJob>();
   private closed = false;
+  private autoJob: PrintJob | null = null;
+  private autoSeen = new Set<string>();
   private listeners = new Set<
     (job: PrintJob, mayHavePrinted: boolean) => void
   >();
@@ -127,13 +131,15 @@ export class PrinterService {
       settingsIssue: this.settingsIssue,
       busy: !!this.active || this.saving,
       job: this.lastJob && { ...this.lastJob },
+      autoPrint: this.autoJob && { ...this.autoJob },
     };
   }
 
-  activity(): Pick<PrinterState, 'busy' | 'job'> {
+  activity(): Pick<PrinterState, 'busy' | 'job' | 'autoPrint'> {
     return {
       busy: !!this.active || this.saving,
       job: this.lastJob && { ...this.lastJob },
+      autoPrint: this.autoJob && { ...this.autoJob },
     };
   }
 
@@ -165,6 +171,7 @@ export class PrinterService {
     this.saving = true;
     try {
       const devices = await this.list();
+      if (settings.autoPrint) requireAutoPrinter(devices, settings.deviceName);
       if (!devices.some((device) => device.name === settings.deviceName))
         throw new PrintError(
           'This printer is no longer detected. Select Refresh and choose your printer.',
@@ -184,9 +191,133 @@ export class PrinterService {
     }
   }
 
-  start(input: unknown): PrintJob {
+  async setAutoPrint(enabled: unknown) {
+    if (typeof enabled !== 'boolean')
+      throw new PrintError('Choose whether to auto-print.');
+    if (!this.settings)
+      throw new PrintError('Choose and save your photo printer first.');
+    if (!enabled) {
+      if (this.active || this.saving)
+        throw new PrintError(
+          'Wait for the current printer operation to finish.',
+        );
+      this.saving = true;
+      try {
+        const settings = validatePrinterSettings({
+          ...this.settings,
+          autoPrint: false,
+        });
+        await this.store.write(settings);
+        this.settings = settings;
+      } catch {
+        throw new PrintError(
+          'Could not save auto-print settings. Check available disk space and try again.',
+        );
+      } finally {
+        this.saving = false;
+      }
+    } else await this.save({ ...this.settings, autoPrint: true });
+    return this.state();
+  }
+
+  async checkAutoPrint() {
+    if (this.autoJob)
+      throw new PrintError(
+        'Finish the current print before starting the next group.',
+      );
+    if (!this.settings?.autoPrint) return;
+    if (
+      this.settings.layout === 'sheet' ||
+      this.active ||
+      this.saving ||
+      this.lastJob?.status === 'uncertain'
+    )
+      throw new PrintError(
+        'The printer is not ready for a new automatic print. Check Printer settings and the Windows queue.',
+      );
+    requireAutoPrinter(await this.list(), this.settings.deviceName);
+  }
+
+  autoStart(id: string) {
+    if (!this.settings?.autoPrint || this.autoSeen.has(id) || this.autoJob)
+      return;
+    this.autoSeen.add(id);
+    if (this.autoSeen.size > 100)
+      this.autoSeen.delete(this.autoSeen.values().next().value!);
+    try {
+      const job = this.start({ id, requestId: randomUUID() }, true);
+      this.autoJob = this.jobs.get(job.id)!;
+    } catch (cause) {
+      this.autoJob = {
+        id: randomUUID(),
+        stripId: id,
+        status: 'failed',
+        message:
+          cause instanceof PrintError
+            ? cause.message
+            : 'Your photo is saved, but auto-print could not start.',
+        printerName: this.settings.deviceName,
+        sheets: this.settings.copies,
+        stripsPerSheet: 1,
+      };
+    }
+  }
+
+  async retryAutoPrint(id: unknown) {
+    if (
+      typeof id !== 'string' ||
+      !this.autoJob ||
+      this.autoJob.stripId !== id ||
+      this.autoJob.status !== 'failed' ||
+      this.active
+    )
+      throw new PrintError(
+        'Check the current print and its queue before retrying.',
+      );
+    if (!this.settings?.autoPrint)
+      throw new PrintError(
+        'Enable auto-print with a ready photo printer before retrying.',
+      );
+    requireAutoPrinter(await this.list(), this.settings.deviceName);
+    const job = this.start({ id, requestId: randomUUID() }, true);
+    this.autoJob = this.jobs.get(job.id)!;
+    return { ...this.autoJob };
+  }
+
+  releaseAutoPrint(id: unknown, checked: unknown) {
+    if (
+      typeof id !== 'string' ||
+      !this.autoJob ||
+      id !== this.autoJob.stripId ||
+      this.active ||
+      (this.autoJob.status !== 'submitted' &&
+        !(
+          checked === true &&
+          ['failed', 'uncertain'].includes(this.autoJob.status)
+        ))
+    )
+      throw new PrintError(
+        'Wait for submission, or check the physical print and Windows queue before continuing.',
+      );
+    if (
+      checked === true &&
+      this.lastJob?.id === this.autoJob.id &&
+      this.lastJob.status === 'uncertain'
+    ) {
+      this.lastJob.status = 'failed';
+      this.lastJob.message =
+        'The operator checked the physical print and Windows queue. No automatic retry was sent.';
+    }
+    this.autoJob = null;
+  }
+
+  start(input: unknown, automatic = false): PrintJob {
     const { id, requestId } = validatePrintRequest(input);
     if (this.closed) throw new PrintError('Printing is shutting down.');
+    if (this.autoJob && !automatic)
+      throw new PrintError(
+        'Finish the automatic print before submitting another job.',
+      );
     const previous = this.jobs.get(requestId);
     if (previous) {
       if (previous.stripId !== id)
@@ -225,11 +356,15 @@ export class PrinterService {
     if (this.jobs.size > 100) this.jobs.delete(this.jobs.keys().next().value!);
     const controller = new AbortController();
     this.active = controller;
-    void this.run(job, settings, controller);
+    void this.run(job, settings, controller, undefined, automatic);
     return { ...job };
   }
 
   startSheet(id: string, paper: PaperRecord, placements: SheetPlacement[]) {
+    if (this.autoJob)
+      throw new PrintError(
+        'Finish the automatic print before submitting a sheet.',
+      );
     validatePlacements(paper, placements);
     validatePrintRequest({ id: placements[0].stripId, requestId: id });
     const previous = this.jobs.get(id);
@@ -285,6 +420,7 @@ export class PrinterService {
     settings: PrinterSettings,
     controller: AbortController,
     sheet?: { paper: PaperRecord; placements: SheetPlacement[] },
+    automatic = false,
   ) {
     let submitted = false;
     let timeout = setTimeout(
@@ -299,6 +435,7 @@ export class PrinterService {
     try {
       this.emit(job, false);
       const devices = await abortable(this.list(), controller.signal);
+      if (automatic) requireAutoPrinter(devices, settings.deviceName);
       if (!devices.some((device) => device.name === settings.deviceName))
         throw new PrintError(
           'Your saved printer is not detected. Open Printer settings to reconnect it or choose another.',
@@ -339,6 +476,11 @@ export class PrinterService {
         target = { pageSize: geometry.pageSize, images: geometry.columns };
         html = printDocument(jpeg, settings, size);
       }
+      if (automatic)
+        requireAutoPrinter(
+          await abortable(this.list(), controller.signal),
+          settings.deviceName,
+        );
       await this.adapter.submit(
         html,
         settings,

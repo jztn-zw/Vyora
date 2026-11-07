@@ -69,17 +69,23 @@ export function validatePrinterSettings(input: unknown): PrinterSettings {
     !['single-strip', 'double-strip', 'sheet'].includes(value.layout || '') ||
     !Number.isInteger(value.copies) ||
     value.copies! < 1 ||
-    value.copies! > 10
+    value.copies! > 10 ||
+    (value.autoPrint !== undefined && typeof value.autoPrint !== 'boolean')
   )
     throw new PrintError('Choose a printer, a strip layout, and 1–10 sheets.');
   if (value.layout === 'sheet' && value.copies !== 1)
     throw new PrintError(
       'Full-sheet layouts print one physical sheet at a time. Add strip copies to the sheet queue instead.',
     );
+  if (value.autoPrint && value.layout === 'sheet')
+    throw new PrintError(
+      'Auto-print needs Photo printer mode. Full sheets require an operator to arrange and load the paper.',
+    );
   return {
     deviceName: value.deviceName,
     layout: value.layout!,
     copies: value.copies!,
+    ...(value.autoPrint ? { autoPrint: true } : {}),
     ...(value.customPaperProfile === undefined
       ? {}
       : {

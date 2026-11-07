@@ -1,5 +1,5 @@
 export type CaptureTimer = 3 | 5 | 10;
-export type ShotCount = 2 | 3 | 4;
+export type ShotCount = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15;
 export type AppTheme = 'light' | 'dark' | 'vyora';
 export type UploadStatus = 'local' | 'queued' | 'uploading' | 'uploaded' | 'failed';
 
@@ -26,9 +26,33 @@ export interface StripRecord {
   photos: PhotoRecord[];
   preview?: string;
   template?: StripTemplate;
+  /** Per-area framing for this session; the captured photos stay unchanged. */
+  photoCrops?: PhotoCrop[];
+}
+
+export interface PhotoCrop {
+  x: number;
+  y: number;
+  zoom: number;
+}
+
+export interface PhotoFrameRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface PhotoAreaView {
+  photoIndex: number;
+  width: number;
+  height: number;
+  crop?: PhotoCrop;
 }
 
 export interface PhotoSlot {
+  /** Zero-based capture source. Missing values retain the area's original order. */
+  photoIndex?: number;
   x: number;
   y: number;
   width: number;
@@ -59,11 +83,15 @@ export type DesktopResult<T> = { ok: true; value: T } | { ok: false; error: stri
 export interface PrinterDevice {
   name: string;
   displayName: string;
+  readiness?: 'ready' | 'unavailable' | 'unknown';
+  statusMessage?: string;
+  virtual?: boolean;
 }
 export interface PrinterSettings {
   deviceName: string;
   layout: 'single-strip' | 'double-strip' | 'sheet';
   copies: number;
+  autoPrint?: boolean;
   customPaperProfile?: CustomPaperProfile;
 }
 export interface CustomPaperProfile {
@@ -139,6 +167,7 @@ export interface PrinterState {
   settingsIssue: string;
   busy: boolean;
   job: PrintJob | null;
+  autoPrint?: PrintJob | null;
 }
 
 export interface DesktopApi {
@@ -190,7 +219,11 @@ export interface DesktopApi {
     batchId: string,
     result: 'printed' | 'blank' | 'spoiled',
   ): Promise<DesktopResult<PaperState>>;
-  getPrintActivity(): Promise<DesktopResult<Pick<PrinterState, 'busy' | 'job'>>>;
+  getPrintActivity(): Promise<DesktopResult<Pick<PrinterState, 'busy' | 'job' | 'autoPrint'>>>;
+  setAutoPrint(enabled: boolean): Promise<DesktopResult<PrinterState>>;
+  checkAutoPrint(): Promise<DesktopResult<void>>;
+  retryAutoPrint(stripId: string): Promise<DesktopResult<PrintJob>>;
+  releaseAutoPrint(stripId: string, checked: boolean): Promise<DesktopResult<void>>;
   getPrinterState(): Promise<DesktopResult<PrinterState>>;
   savePrinterSettings(settings: PrinterSettings): Promise<DesktopResult<PrinterSettings>>;
   printStrip(id: string, requestId: string): Promise<DesktopResult<PrintJob>>;
@@ -212,6 +245,7 @@ export interface DesktopApi {
   updateTemplate(id: string, template: StripTemplateDraft): Promise<DesktopResult<StripTemplate>>;
   removeTemplate(id: string): Promise<DesktopResult<void>>;
   getStripSources(id: string): Promise<DesktopResult<StripRecord>>;
+  setPhotoCrop(id: string, areaIndex: number, crop: PhotoCrop): Promise<DesktopResult<StripRecord>>;
   getStripPreview(id: string): Promise<DesktopResult<string>>;
   deleteStrip(id: string): Promise<DesktopResult<void>>;
   saveStrip(id: string, jpeg: ArrayBuffer, reveal?: boolean): Promise<DesktopResult<string>>;
@@ -225,7 +259,8 @@ export interface GuestSnapshot {
   revision: number;
   theme: AppTheme;
   mode: 'assisted' | 'self-service';
-  stage: 'idle' | 'design' | 'ready' | 'capture' | 'review' | 'done';
+  stage: 'idle' | 'design' | 'ready' | 'capture' | 'review' | 'done' | 'printing';
+  printJob?: PrintJob | null;
   ready: boolean;
   busy: boolean;
   paused: boolean;
@@ -241,12 +276,25 @@ export interface GuestSnapshot {
   message: string;
   error: string;
   frames: { id: string; name: string; preview: string; shots: number }[];
-  photos: { id: string; thumbnail: string }[];
+  photos: { id: string; thumbnail: string; width?: number; height?: number }[];
+  areas?: PhotoAreaView[];
+  framing?: PhotoFrameRect;
   strip: string;
 }
 export interface GuestCommand {
   revision: number;
-  action: 'frame' | 'design' | 'start' | 'continue' | 'retake' | 'confirm' | 'next' | 'effect';
+  action:
+    | 'frame'
+    | 'design'
+    | 'start'
+    | 'continue'
+    | 'retake'
+    | 'confirm'
+    | 'next'
+    | 'effect'
+    | 'crop';
+  areaIndex?: number;
+  crop?: PhotoCrop;
   effect?: PhotoEffect;
   frameId?: string;
   photoIds?: string[];

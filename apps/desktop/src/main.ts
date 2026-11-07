@@ -15,8 +15,10 @@ import type { DesktopResult } from '@vyora/shared';
 import { createLibrary } from './storage/library';
 import { createIncludedTemplates } from './storage/included-templates';
 import { createSessionBuffer } from './storage/session-buffer';
-import { validateFourPhotoTemplate } from './template-layout';
+import { validateTemplate } from './template-layout';
+import { capturePhotoCount } from './photo-sources';
 import { PrinterService } from './printing/printer-service';
+import { describePrinter } from './printing/printer-readiness';
 import { printerSettingsStore } from './printing/printer-settings';
 import { PrintError } from './printing/print-layout';
 import { submitPrintWindow } from './printing/print-window';
@@ -212,10 +214,9 @@ app
           if (!mainWindow || mainWindow.isDestroyed())
             throw new PrintError('Open VYORA to detect printers.');
           const devices = await mainWindow.webContents.getPrintersAsync();
-          return devices.map((device) => ({
-            name: device.name,
-            displayName: device.displayName || device.name,
-          }));
+          return devices.map((device) =>
+            describePrinter(device, process.platform),
+          );
         },
         async readStrip(id) {
           stripRemoval.assertAvailable(id);
@@ -518,6 +519,15 @@ app
       });
     }
     handle('printer:state', () => printers!.state());
+    handle('printer:auto-setting', (enabled) =>
+      printers!.setAutoPrint(enabled),
+    );
+    handle('printer:auto-check', () => printers!.checkAutoPrint());
+    handle('printer:auto-retry', (id) => printers!.retryAutoPrint(id));
+    handle('printer:auto-release', (input) => {
+      const value = input as { id?: unknown; checked?: unknown } | null;
+      printers!.releaseAutoPrint(value?.id, value?.checked);
+    });
     handle('printer:activity', () => printers!.activity());
     handle('printer:settings', (input) => printers!.save(input));
     handle('printer:print', (input) => printers!.start(input));
@@ -551,7 +561,7 @@ app
         );
       return library!.templates.update(
         payload.id,
-        validateFourPhotoTemplate(payload.template),
+        validateTemplate(payload.template),
       );
     });
     handle('template:remove', (input) => {
@@ -567,7 +577,7 @@ app
       return library!.templates.get(input);
     });
     handle('template:save', (input) => {
-      const draft = validateFourPhotoTemplate(input);
+      const draft = validateTemplate(input);
       const image = nativeImage.createFromDataURL(draft.frame);
       if (
         image.isEmpty() ||
@@ -607,8 +617,6 @@ app
         typeof payload.templateId === 'string'
           ? library!.templates.get(payload.templateId)
           : undefined;
-      if (template && template.slots.length !== 4)
-        throw new Error('Choose a frame with 4 photo areas.');
       return captures.stage(
         payload.sessionId,
         jpeg,
@@ -642,6 +650,21 @@ app
         image.resize({ width: 280 }).toDataURL(),
       );
     });
+    handle('session:crop', (input) => {
+      const payload = input as {
+        id?: unknown;
+        areaIndex?: unknown;
+        crop?: unknown;
+      } | null;
+      if (
+        !payload ||
+        typeof payload.id !== 'string' ||
+        typeof payload.areaIndex !== 'number'
+      )
+        throw new Error('Invalid photo position.');
+      captures.setCrop(payload.id, payload.areaIndex, payload.crop);
+      return captures.pending();
+    });
     handle('strip:sources', (input) => {
       if (typeof input !== 'string') throw new Error('Invalid strip ID');
       return captures.has(input)
@@ -667,8 +690,11 @@ app
       const strip = captures.has(payload.id)
         ? captures.read(payload.id)
         : library!.readStrip(payload.id);
-      if (captures.has(payload.id) && strip.photos.length !== 4)
-        throw new Error('Finish taking all 4 photos before saving.');
+      if (
+        captures.has(payload.id) &&
+        strip.photos.length !== capturePhotoCount(strip.template)
+      )
+        throw new Error('Finish taking all photos before saving.');
       if (
         image.isEmpty() ||
         image.getSize().width !== (strip.template?.width ?? 720) ||
@@ -685,7 +711,9 @@ app
         jpeg,
         image.resize({ width: 280 }).toDataURL(),
       );
+      const newSession = captures.has(payload.id);
       captures.clear(payload.id);
+      if (newSession) printers!.autoStart(payload.id);
       if (payload.reveal) shell.showItemInFolder(filename);
       return filename;
     });

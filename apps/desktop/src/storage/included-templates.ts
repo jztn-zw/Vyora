@@ -27,7 +27,7 @@ export function createIncludedTemplates(directory: string): IncludedTemplates {
   const entries: unknown = JSON.parse(
     readFileSync(path.join(directory, 'index.json'), 'utf8'),
   );
-  if (!Array.isArray(entries) || entries.length !== 21)
+  if (!Array.isArray(entries) || entries.length !== 25)
     throw new Error('The included VYORA frame collection is incomplete.');
   const catalog = new Map<string, FrameEntry>();
   for (const entry of entries as FrameEntry[]) {

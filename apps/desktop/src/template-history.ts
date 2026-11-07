@@ -32,6 +32,7 @@ export const sameTemplateLayout = (a: Layout, b: Layout) =>
   a.slots.every(
     (slot, index) =>
       (slot.rotation ?? 0) === (b.slots[index].rotation ?? 0) &&
+      slot.photoIndex === b.slots[index].photoIndex &&
       (['x', 'y', 'width', 'height'] as const).every(
         (key) => slot[key] === b.slots[index][key],
       ),

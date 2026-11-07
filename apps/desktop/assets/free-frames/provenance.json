@@ -23,6 +23,22 @@
     {
       "file": "vintage-3.png",
       "sha256": "22164bfa229833e66f5f02d71a80b46ca9492124f84a878204dcf8ba4991ce31"
+    },
+    {
+      "file": "flash-notes-4.png",
+      "sha256": "f6d24e3d396e13f6ca2be64e38b2195d9c43d85e27ca1d030210120f66e7ba59"
+    },
+    {
+      "file": "night-index-3.png",
+      "sha256": "85b4ba0ccebda733af07a65ba7f56c823efeb0616b284c446b4cc3ff925a9a4f"
+    },
+    {
+      "file": "lavender-retro-3.png",
+      "sha256": "869f4f6688cecc4cd904d66b1cd1b6538f8bc5a5024a856855a68931b238fad5"
+    },
+    {
+      "file": "booth-chronicle-4.png",
+      "sha256": "7c57c8ad79359445c8c58f5a2d74432212ae51133fd9ab3e6e586ae31cd7765a"
     }
   ],
   "generatedWith": "Built-in imagegen; new count layouts and Pink Friends refinements",

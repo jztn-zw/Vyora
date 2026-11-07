@@ -1,4 +1,5 @@
 import type { PhotoSlot, StripTemplateDraft } from '@vyora/shared';
+import { MAX_PHOTO_AREAS, photoSourceIndex } from './photo-sources.ts';
 
 export type PhotoAreaHandle = 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'nw';
 
@@ -132,7 +133,7 @@ export function pastePhotoArea(
   slots: PhotoSlot[],
   source: PhotoSlot,
 ): PhotoSlot[] | null {
-  if (slots.length >= 4) return null;
+  if (slots.length >= MAX_PHOTO_AREAS) return null;
   // Keep the copied size, offset it for visibility, and stay inside the frame.
   const candidates = [0.025, 0.05, 0.075, -0.025, -0.05, -0.075].map(
     (offset) => ({
@@ -187,10 +188,10 @@ export function validateTemplate(input: unknown): StripTemplateDraft {
     throw new Error('Choose how the frame is layered.');
   if (
     !Array.isArray(value.slots) ||
-    value.slots.length < 2 ||
-    value.slots.length > 4
+    value.slots.length < 1 ||
+    value.slots.length > MAX_PHOTO_AREAS
   )
-    throw new Error('Mark 2, 3, or 4 photo areas before saving.');
+    throw new Error('Mark between 1 and 15 photo areas before saving.');
   const slots = value.slots.map((slot) => {
     if (
       !slot ||
@@ -212,14 +213,27 @@ export function validateTemplate(input: unknown): StripTemplateDraft {
         slot.rotation > 180)
     )
       throw new Error('Photo area rotation must be between −180° and 180°.');
+    if (
+      slot.photoIndex !== undefined &&
+      (!Number.isInteger(slot.photoIndex) ||
+        slot.photoIndex < 0 ||
+        slot.photoIndex >= MAX_PHOTO_AREAS)
+    )
+      throw new Error('Choose a valid photo number for each area.');
     return {
       x: slot.x,
       y: slot.y,
       width: slot.width,
       height: slot.height,
       ...(slot.rotation === undefined ? {} : { rotation: slot.rotation }),
+      ...(slot.photoIndex === undefined ? {} : { photoIndex: slot.photoIndex }),
     };
   });
+  const sources = [...new Set(slots.map(photoSourceIndex))].sort(
+    (a, b) => a - b,
+  );
+  if (sources.some((source, index) => source !== index))
+    throw new Error('Photo numbers must start at 1 and have no gaps.');
   return {
     name: value.name.trim(),
     width: value.width,
@@ -228,13 +242,6 @@ export function validateTemplate(input: unknown): StripTemplateDraft {
     layer: value.layer,
     slots,
   };
-}
-
-export function validateFourPhotoTemplate(input: unknown): StripTemplateDraft {
-  const template = validateTemplate(input);
-  if (template.slots.length !== 4)
-    throw new Error('Mark exactly 4 photo areas before saving.');
-  return template;
 }
 
 export function evenlySpacedSlots(count: number): PhotoSlot[] {
@@ -254,8 +261,8 @@ export function resizePhotoAreaCount(
   count: number,
   imported: PhotoSlot[] = [],
 ): PhotoSlot[] {
-  if (!Number.isInteger(count) || count < 0 || count > 4)
-    throw new Error('Choose 0–4 photo areas.');
+  if (!Number.isInteger(count) || count < 0 || count > MAX_PHOTO_AREAS)
+    throw new Error('Choose 0–15 photo areas.');
   if (!count) return [];
   const starter = evenlySpacedSlots(count);
   return Array.from({ length: count }, (_, index) => ({
@@ -344,13 +351,15 @@ export function detectPhotoSlots(
     );
   }
   const transparent = regions('transparent');
-  const isOverlay = transparent.length >= 2;
+  const isOverlay = transparent.length >= 1;
   const candidates = isOverlay ? transparent : regions('white');
-  const detected = candidates.length >= 2 && candidates.length <= 4;
+  const detected =
+    candidates.length >= 1 && candidates.length <= MAX_PHOTO_AREAS;
   return {
     slots: detected ? candidates : [],
     layer: isOverlay ? ('overlay' as const) : ('background' as const),
     detected,
-    excessOpenings: candidates.length > 4 ? candidates.length : undefined,
+    excessOpenings:
+      candidates.length > MAX_PHOTO_AREAS ? candidates.length : undefined,
   };
 }

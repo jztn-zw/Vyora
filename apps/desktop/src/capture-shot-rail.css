@@ -11,6 +11,17 @@
 .capture-shots-2 {
   width: min(295px, calc(100% - 40px));
 }
+.capture-shots-1 {
+  width: min(190px, calc(100% - 40px));
+}
+.capture-shot-tiles.capture-shot-many {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+}
+.capture-shot-many .capture-shot-placeholder {
+  font-size: clamp(16px, 3vw, 28px);
+}
 .capture-shots-3 {
   width: min(448px, calc(100% - 40px));
 }
@@ -26,6 +37,7 @@
 }
 .capture-shot-tiles {
   display: flex;
+  align-items: end;
   gap: 10px;
   margin: 0;
   padding: 0;

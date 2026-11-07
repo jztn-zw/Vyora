@@ -2,6 +2,12 @@ import type { PhotoEffect, StripRecord } from '@vyora/shared';
 import stripBrand from './strip-brand.json' with { type: 'json' };
 import { validateTemplate, photoSlotTransform } from './template-layout.ts';
 import { photoEffectFilter } from './photo-effects.ts';
+import { photoPlacement } from './photo-framing.ts';
+import {
+  MAX_PHOTO_AREAS,
+  capturePhotoCount,
+  photoSourceIndex,
+} from './photo-sources.ts';
 
 const { symbol: stripSymbol, wordmark: stripWordmark } = stripBrand;
 
@@ -12,8 +18,8 @@ const GAP = 36;
 const FOOTER = 300;
 
 export function stripHeight(count: number) {
-  if (!Number.isInteger(count) || count < 1 || count > 4)
-    throw new Error('A strip needs 1–4 photos.');
+  if (!Number.isInteger(count) || count < 1 || count > MAX_PHOTO_AREAS)
+    throw new Error('A frame needs 1–15 photos.');
   return TOP + count * PHOTO_HEIGHT + (count - 1) * GAP + FOOTER;
 }
 
@@ -39,12 +45,12 @@ export function createStripSvg(strip: StripRecord, effect?: PhotoEffect) {
   if (strip.template) {
     const template = validateTemplate(strip.template);
     stripHeight(strip.photos.length);
-    if (strip.photos.length > template.slots.length)
+    if (strip.photos.length > capturePhotoCount(template))
       throw new Error('Too many photos for this template.');
     const frame = `<image data-layer="frame" href="${template.frame}" x="0" y="0" width="${template.width}" height="${template.height}"/>`;
     const photos = template.slots
       .map((slot, index) => {
-        const photo = strip.photos[index];
+        const photo = strip.photos[photoSourceIndex(slot, index)];
         if (
           photo?.thumbnail &&
           !/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(
@@ -56,7 +62,12 @@ export function createStripSvg(strip: StripRecord, effect?: PhotoEffect) {
           y = slot.y * template.height;
         const width = slot.width * template.width,
           height = slot.height * template.height;
-        return `<g transform="${photoSlotTransform(slot, template.width, template.height)}"><svg data-slot="${index + 1}" x="${x}" y="${y}" width="${width}" height="${height}" overflow="hidden"><rect width="100%" height="100%" fill="white"/>${photo?.thumbnail ? `<image href="${escapeXml(photo.thumbnail)}" width="100%" height="100%" preserveAspectRatio="xMidYMid slice"${filter}/>` : ''}</svg></g>`;
+        const crop = strip.photoCrops?.[index];
+        const fit =
+          photo && crop
+            ? photoPlacement(photo.width, photo.height, width, height, crop)
+            : undefined;
+        return `<g transform="${photoSlotTransform(slot, template.width, template.height)}"><svg data-slot="${index + 1}" x="${x}" y="${y}" width="${width}" height="${height}" overflow="hidden"><rect width="100%" height="100%" fill="white"/>${photo?.thumbnail ? `<image href="${escapeXml(photo.thumbnail)}" ${fit ? `x="${fit.x}" y="${fit.y}" width="${fit.width}" height="${fit.height}"` : 'width="100%" height="100%"'} preserveAspectRatio="xMidYMid slice"${filter}/>` : ''}</svg></g>`;
       })
       .join('');
     return `<svg xmlns="http://www.w3.org/2000/svg" overflow="hidden" width="${template.width}" height="${template.height}" viewBox="0 0 ${template.width} ${template.height}"><title>${escapeXml(template.name)}</title><rect width="100%" height="100%" fill="white"/>${template.layer === 'background' ? frame + photos : photos + frame}</svg>`;
@@ -75,7 +86,11 @@ export function createStripSvg(strip: StripRecord, effect?: PhotoEffect) {
       }
       const y = TOP + index * (PHOTO_HEIGHT + GAP);
       const side = index % 2 ? 688 : 30;
-      return `${photo.thumbnail ? `<image href="${escapeXml(photo.thumbnail)}" x="60" y="${y}" width="600" height="${PHOTO_HEIGHT}" preserveAspectRatio="xMidYMid slice"${filter}/>` : `<rect x="60" y="${y}" width="600" height="${PHOTO_HEIGHT}" fill="white"/>`}
+      const crop = strip.photoCrops?.[index];
+      const fit = crop
+        ? photoPlacement(photo.width, photo.height, 600, PHOTO_HEIGHT, crop)
+        : undefined;
+      return `${photo.thumbnail ? (fit ? `<svg x="60" y="${y}" width="600" height="${PHOTO_HEIGHT}" overflow="hidden"><image href="${escapeXml(photo.thumbnail)}" x="${fit.x}" y="${fit.y}" width="${fit.width}" height="${fit.height}"${filter}/></svg>` : `<image href="${escapeXml(photo.thumbnail)}" x="60" y="${y}" width="600" height="${PHOTO_HEIGHT}" preserveAspectRatio="xMidYMid slice"${filter}/>`) : `<rect x="60" y="${y}" width="600" height="${PHOTO_HEIGHT}" fill="white"/>`}
       <g fill="white" font-family="monospace" font-size="16" text-anchor="middle">
         <path d="M${side - 7} ${y + 50}l7-16 7 16z"/><text x="${side}" y="${y + 76}">${String(index + 1).padStart(2, '0')}</text>
         <path d="M${side - 7} ${y + 90}h14l-7 16z"/>

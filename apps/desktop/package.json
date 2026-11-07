@@ -19,7 +19,7 @@
     "test:strips": "node --test tests/photo-strip.test.mjs",
     "test:templates": "node --test tests/template-layout.test.mjs",
     "test:free-frames": "node --test tests/included-templates.test.mjs",
-    "test:retakes": "node --test tests/capture-review.test.mjs",
+    "test:retakes": "node --test tests/capture-review.test.mjs tests/photo-framing.test.mjs",
     "test:countdown": "node --test tests/countdown-timing.test.mjs",
     "test:deletion": "node --test tests/strip-removal.test.mjs",
     "test:review-ui": "electron tests/capture-review-smoke.cjs",

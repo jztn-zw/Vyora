@@ -164,7 +164,7 @@ function GuestScreen() {
     action: GuestCommand['action'],
     extra: Partial<GuestCommand> = {},
   ) {
-    if (lock.current || !current.current || issue) return;
+    if (lock.current || !current.current || issue) return false;
     lock.current = true;
     setBusy(true);
     setActionIssue('');
@@ -175,12 +175,28 @@ function GuestScreen() {
         const result = await window.vyora.guestSend(value);
         if (!result.ok) throw new Error(result.error);
       } else await request('/api/command', value);
+      // The command acknowledgement can arrive before the next published state.
+      // Keep controls locked until polling has observed that change, so a quick
+      // second tap cannot reuse the consumed revision.
+      const deadline = Date.now() + 3500;
+      while (
+        current.current &&
+        current.current.revision <= previousRevision &&
+        Date.now() < deadline
+      )
+        await new Promise((resolve) => setTimeout(resolve, 40));
+      if (!current.current || current.current.revision <= previousRevision)
+        throw new Error(
+          'The booth is still updating. Please wait a moment and try again.',
+        );
+      return true;
     } catch (error) {
       setActionIssue(
         error instanceof Error
           ? error.message
           : 'Please ask the organizer for help.',
       );
+      return false;
     } finally {
       lock.current = false;
       setBusy(false);
@@ -279,7 +295,7 @@ function GuestScreen() {
                   : [...ids, id],
               )
             }
-            onAction={(action, extra) => void send(action, extra)}
+            onAction={send}
           />
         )}
       </main>

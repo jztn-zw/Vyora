@@ -82,6 +82,8 @@ app.whenReady().then(async () => {
         { x: 0.2, y: 0.6, width: 0.6, height: 0.2, rotation: -20 },
         { x: 0.2, y: 0.37, width: 0.6, height: 0.13 },
         { x: 0.2, y: 0.87, width: 0.6, height: 0.1 },
+        { x: 0.02, y: 0.3, width: 0.08, height: 0.06, photoIndex: 0 },
+        { x: 0.88, y: 0.3, width: 0.08, height: 0.06, photoIndex: 0 },
       ],
     };
     const handle = (name, callback) =>
@@ -122,6 +124,16 @@ app.whenReady().then(async () => {
       assert.equal(id, strip.id);
       return { ok: true, value: strip };
     });
+    handle('session:crop', ({ id, areaIndex, crop }) => {
+      const target = guestStrip?.id === id ? guestStrip : strip;
+      assert.equal(target.id, id);
+      target.photoCrops ||= Array.from(
+        { length: target.template?.slots.length ?? 4 },
+        () => ({ x: 0.5, y: 0.5, zoom: 1 }),
+      );
+      target.photoCrops[areaIndex] = crop;
+      return { ok: true, value: structuredClone(target) };
+    });
     handle('strip:preview', () =>
       fileMissing || !savedJpeg
         ? { ok: false, error: 'The saved strip file is missing.' }
@@ -142,6 +154,7 @@ app.whenReady().then(async () => {
       },
     }));
     handle('printer:activity', () => ({ ok: true, value: { busy: false } }));
+    handle('printer:auto-check', () => ({ ok: true }));
     handle('strip:save', ({ id, jpeg }) => {
       assert.equal(id, guestStrip?.id || strip.id);
       assert.ok(jpeg instanceof ArrayBuffer);
@@ -153,7 +166,7 @@ app.whenReady().then(async () => {
       if (guestStrip) {
         assert.deepEqual(
           guestStrip.template.slots.map((slot) => slot.rotation),
-          [30, -20, undefined, undefined],
+          [30, -20, undefined, undefined, undefined, undefined],
         );
         const pixels = image.toBitmap();
         const green = (x, y) => pixels[(y * 400 + x) * 4 + 1];
@@ -172,6 +185,14 @@ app.whenReady().then(async () => {
         assert.ok(
           green(235, 180) > 108,
           'Unmirrored strip keeps the lighter photo pixels on the right',
+        );
+        assert.ok(
+          green(24, 264) < 95,
+          'The linked area exports its own left-aligned zoomed crop',
+        );
+        assert.ok(
+          green(372, 264) > 108,
+          'The other linked area retains its independent center crop',
         );
         const photo = (180 * 400 + 235) * 4;
         assert.ok(Math.abs(pixels[photo] - pixels[photo + 1]) <= 3);
@@ -618,6 +639,14 @@ app.whenReady().then(async () => {
     await until(
       "!!document.querySelector('.kiosk-stage-capture') && !!document.querySelector('.kiosk-start-surface')",
     );
+    await until("!!document.querySelector('.capture-framing-border')");
+    assert.ok(
+      await evaluate(`(() => {
+      const guide = document.querySelector('.capture-framing-border').getBBox();
+      return Math.abs(guide.width / guide.height - 2/3) < 0.01;
+    })()`),
+      'Live guide uses the safe crop shared by all linked areas, not the wide camera ratio',
+    );
     assert.equal(
       await evaluate(
         "document.querySelector('.kiosk-start-hint strong').textContent",
@@ -659,7 +688,7 @@ app.whenReady().then(async () => {
     );
     assert.equal(
       await evaluate(
-        "getComputedStyle(document.querySelector('.capture-review-photo img')).filter",
+        "getComputedStyle(document.querySelector('.capture-review-photo image')).filter",
       ),
       'grayscale(1)',
     );
@@ -675,6 +704,88 @@ app.whenReady().then(async () => {
     await until(
       "document.querySelector('.capture-review-effects button:nth-child(2)').getAttribute('aria-pressed') === 'true'",
     );
+    await evaluate(
+      "document.querySelector('.photo-positioner > button').click()",
+    );
+    await until("!!document.querySelector('.photo-positioner-canvas')");
+    assert.equal(
+      await evaluate(
+        "document.querySelector('.capture-review-footer .primary-button').disabled",
+      ),
+      true,
+      'Apply or cancel a crop before confirming',
+    );
+    await evaluate(`(() => {
+      const select = document.querySelector('[aria-label="Photo area to adjust"]');
+      select.value = '4'; select.dispatchEvent(new Event('change', { bubbles: true }));
+    })()`);
+    await until(
+      "document.querySelector('[aria-label=\"Photo area to adjust\"]').value === '4'",
+    );
+    await evaluate(`(() => {
+      const input = document.querySelector('[aria-label="Photo zoom"]');
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, '2');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    })()`);
+    await until(
+      "document.querySelector('.photo-positioner-zoom output').textContent === '2.00×'",
+    );
+    await evaluate(
+      "document.querySelector('.photo-positioner-canvas').scrollIntoView({ block: 'center' })",
+    );
+    const dragPoint = await evaluate(`(() => {
+      const canvas = document.querySelector('.photo-positioner-canvas');
+      const rect = canvas.getBoundingClientRect();
+      return { x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + rect.height / 2), before: Number(canvas.querySelector('image').getAttribute('x')) };
+    })()`);
+    contents.sendInputEvent({
+      type: 'mouseMove',
+      x: dragPoint.x,
+      y: dragPoint.y,
+    });
+    contents.sendInputEvent({
+      type: 'mouseDown',
+      x: dragPoint.x,
+      y: dragPoint.y,
+      button: 'left',
+      clickCount: 1,
+    });
+    contents.sendInputEvent({
+      type: 'mouseMove',
+      x: dragPoint.x + 30,
+      y: dragPoint.y,
+    });
+    await until(
+      `Number(document.querySelector('.photo-positioner-canvas image').getAttribute('x')) > ${dragPoint.before}`,
+    );
+    contents.sendInputEvent({
+      type: 'mouseUp',
+      x: dragPoint.x + 30,
+      y: dragPoint.y,
+      button: 'left',
+      clickCount: 1,
+    });
+    for (let key = 0; key < 25; key++)
+      await evaluate(
+        "document.querySelector('.photo-positioner-canvas').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true }))",
+      );
+    contents.invalidate();
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    await contents.capturePage();
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    writeFileSync(
+      path.join(artifacts, 'photo-positioning.png'),
+      (await contents.capturePage()).toPNG(),
+    );
+    await evaluate(
+      "document.querySelector('.photo-positioner-actions .primary-button').click()",
+    );
+    await until(
+      "!document.querySelector('.photo-positioner-canvas') && !document.querySelector('.capture-review-footer .primary-button').disabled",
+    );
+    assert.deepEqual(guestStrip.photoCrops[4], { x: 0, y: 0.5, zoom: 2 });
+    assert.deepEqual(guestStrip.photoCrops[5], { x: 0.5, y: 0.5, zoom: 1 });
     await evaluate(
       "document.querySelector('.capture-review-footer .primary-button').click()",
     );

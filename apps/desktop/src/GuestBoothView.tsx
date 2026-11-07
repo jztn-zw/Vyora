@@ -4,7 +4,11 @@ import { CaptureShotRail } from './CaptureShotRail';
 import { CaptureCountdown } from './CaptureCountdown';
 import { KioskStartSurface } from './KioskStartSurface';
 import { PhotoEffectPicker } from './PhotoEffectPicker';
-import { photoEffectFilter } from './photo-effects';
+import { useEffect, useRef, useState } from 'react';
+import { CaptureFramingGuide } from './CaptureFramingGuide';
+import { PhotoAreaImage } from './PhotoAreaImage';
+import { PhotoPositioner } from './PhotoPositioner';
+import { AutoPrintScreen } from './AutoPrintScreen';
 
 // Reuse the original guest booth's carousel, full-screen camera and completion styles.
 export function GuestBoothView({
@@ -23,20 +27,55 @@ export function GuestBoothView({
   onAction: (
     action: GuestCommand['action'],
     extra?: Partial<GuestCommand>,
-  ) => void;
+  ) => Promise<boolean>;
 }) {
+  const media = useRef<HTMLImageElement>(null);
+  const [adjusting, setAdjusting] = useState(false);
+  useEffect(() => setAdjusting(false), [state.stage]);
   const assisted = state.mode === 'assisted';
   const remaining = state.total - state.photos.length;
+  const areas =
+    state.areas ??
+    state.photos.map((_, photoIndex) => ({
+      photoIndex,
+      width: 600,
+      height: 394,
+    }));
   return (
     <>
+      {state.stage === 'printing' && state.printJob && (
+        <AutoPrintScreen
+          key={state.printJob.id}
+          job={state.printJob}
+          operator={false}
+          onNext={
+            !assisted && canAct && state.printJob.status === 'submitted'
+              ? async () => {
+                  if (!(await onAction('next')))
+                    throw new Error(
+                      'Please wait for the booth to finish this print.',
+                    );
+                }
+              : undefined
+          }
+        />
+      )}
       <div className="capture-layout">
         <section className="capture-column">
           <div className="viewfinder guest-camera">
             {preview && state.ready && (
               <img
                 className={state.mirror ? 'guest-live mirrored' : 'guest-live'}
+                ref={media}
                 src={preview}
                 alt="Live camera preview"
+              />
+            )}
+            {state.ready && preview && (
+              <CaptureFramingGuide
+                framing={state.framing}
+                media={media}
+                mirrored={state.mirror}
               />
             )}
             {!state.ready && (
@@ -54,6 +93,7 @@ export function GuestBoothView({
                   current={state.current}
                   remaining={state.total - state.photos.length}
                   retaking={false}
+                  areas={areas}
                   photos={state.photos.map(
                     (photo) =>
                       ({
@@ -188,10 +228,17 @@ export function GuestBoothView({
                     aria-pressed={selected.includes(photo.id)}
                     onClick={() => onSelect(photo.id)}
                   >
-                    <img
-                      src={photo.thumbnail}
-                      style={{ filter: photoEffectFilter(state.effect) }}
-                      alt={`Photo ${index + 1}`}
+                    <PhotoAreaImage
+                      photo={photo}
+                      area={
+                        areas.find((area) => area.photoIndex === index) ?? {
+                          photoIndex: index,
+                          width: 600,
+                          height: 394,
+                        }
+                      }
+                      effect={state.effect}
+                      label={`Photo ${index + 1}, as framed`}
                     />
                     <span>
                       <strong>Photo {index + 1}</strong>
@@ -202,6 +249,21 @@ export function GuestBoothView({
                   </button>
                 ))}
               </div>
+              {!assisted && (
+                <PhotoPositioner
+                  areas={areas}
+                  photos={state.photos}
+                  effect={state.effect}
+                  disabled={!canAct}
+                  onEditingChange={setAdjusting}
+                  onApply={async (areaIndex, crop) => {
+                    if (!(await onAction('crop', { areaIndex, crop })))
+                      throw new Error(
+                        'Could not apply this position. Try again.',
+                      );
+                  }}
+                />
+              )}
               <p className="capture-review-selection-note">
                 {selected.length
                   ? `${selected.length} selected. Only these photos will be replaced.`
@@ -219,7 +281,9 @@ export function GuestBoothView({
               <div>
                 <button
                   className="outline-button"
-                  disabled={!canAct || !selected.length || !state.ready}
+                  disabled={
+                    !canAct || !selected.length || !state.ready || adjusting
+                  }
                   onClick={() => onAction('retake', { photoIds: selected })}
                 >
                   Retake selected {selected.length || ''}
@@ -228,6 +292,7 @@ export function GuestBoothView({
                   className="primary-button"
                   disabled={
                     !canAct ||
+                    adjusting ||
                     !!selected.length ||
                     (remaining > 0 && !state.ready)
                   }

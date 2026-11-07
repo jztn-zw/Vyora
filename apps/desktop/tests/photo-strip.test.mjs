@@ -34,7 +34,7 @@ test('one to four shots produce complete strips with a VYORA footer', () => {
 });
 
 test('invalid photo counts cannot create empty or oversized strips', () => {
-  for (const count of [0, 5, -1, 2.5]) assert.throws(() => stripHeight(count));
+  for (const count of [0, 16, -1, 2.5]) assert.throws(() => stripHeight(count));
 });
 
 test('the strip embeds the original emblem and wordmark instead of substitute lettering', () => {

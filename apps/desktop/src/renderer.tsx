@@ -7,6 +7,7 @@ import { useGuestController } from './use-guest-controller';
 import { version as appVersion } from '../package.json';
 import type {
   CaptureTimer,
+  ShotCount,
   LibraryInfo,
   PhotoRecord,
   StripRecord,
@@ -14,6 +15,7 @@ import type {
   StripTemplate,
   StripTemplateSummary,
   PhotoEffect,
+  PhotoCrop,
 } from '@vyora/shared';
 import { DEFAULT_THEME, isAppTheme, saveTheme, themes } from './theme';
 import { renderStripJpeg, stripPreviewUrl } from './photo-strip';
@@ -37,6 +39,9 @@ import { StudioSelect } from './StudioSelect';
 import { CaptureReview } from './CaptureReview';
 import { CaptureShotRail } from './CaptureShotRail';
 import { CaptureCountdown } from './CaptureCountdown';
+import { AutoPrintSetting } from './AutoPrintSetting';
+import { AutoPrintScreen } from './AutoPrintScreen';
+import { useAutoPrint } from './use-auto-print';
 import { KioskStartSurface } from './KioskStartSurface';
 import { isPhotoEffect } from './photo-effects';
 import { DeleteStripDialog } from './DeleteStripDialog';
@@ -44,6 +49,9 @@ import { ExitBoothDialog } from './ExitBoothDialog';
 import { NoticeGate, UsageNoticeDialog } from './UsageNotice';
 import { FramePreview } from './FramePreview';
 import { FrameCarousel } from './FrameCarousel';
+import { capturePhotoCount } from './photo-sources';
+import { DEFAULT_PHOTO_CROP, photoAreaViews } from './photo-framing';
+import { CaptureFramingGuide, useCaptureFraming } from './CaptureFramingGuide';
 import {
   frameChoiceId,
   frameChoiceName,
@@ -566,6 +574,9 @@ function App() {
   );
   const [guestPaused, setGuestPaused] = useState(false);
   const [guestDone, setGuestDone] = useState(false);
+  const automaticPrint = useAutoPrint();
+  const printerPreflight = useRef(false);
+  const [boothOpening, setBoothOpening] = useState(false);
   const [confirmExitBooth, setConfirmExitBooth] = useState(false);
   const [showUsageNotice, setShowUsageNotice] = useState(false);
   const [showAppearance, setShowAppearance] = useState(false);
@@ -595,7 +606,6 @@ function App() {
     }
     return 3;
   });
-  const shots = 4;
   const [countdown, setCountdown] = useState<number | null>(null);
   const [countdownEndsAt, setCountdownEndsAt] = useState<number | null>(null);
   const [progress, setProgress] = useState(0);
@@ -612,6 +622,9 @@ function App() {
   const [templates, setTemplates] = useState<StripTemplateSummary[]>([]);
   const [selectedTemplate, setSelectedTemplate] =
     useState<StripTemplate | null>(null);
+  const shots = capturePhotoCount(
+    pendingStrip ? pendingStrip.template : (selectedTemplate ?? undefined),
+  ) as ShotCount;
   const [loadingTemplate, setLoadingTemplate] = useState(true);
   const [editingTemplate, setEditingTemplate] = useState(false);
   const [editingExistingTemplate, setEditingExistingTemplate] =
@@ -639,9 +652,7 @@ function App() {
     (visibleStrips.find((strip) => strip.id === viewingStrip.id) ??
       viewingStrip);
   const selectedCamera = devices.find((device) => device.deviceId === deviceId);
-  const sequenceLength =
-    pendingStrip?.template?.slots.length ??
-    Math.max(shots, pendingStrip?.photos.length ?? 0);
+  const sequenceLength = Math.max(shots, pendingStrip?.photos.length ?? 0);
   const completedSlots = pendingStrip
     ? pendingStrip.photos.map((_, index) => index)
     : capturedSlots;
@@ -654,11 +665,8 @@ function App() {
     }
   }
   const studioFrameChoices = useMemo(
-    () => groupFrameChoices(templates, shots),
-    [templates, shots],
-  );
-  const olderCustomFrames = templates.filter(
-    (template) => !template.builtIn && template.slots.length !== shots,
+    () => groupFrameChoices(templates, 4),
+    [templates],
   );
   const studioFramesLocked =
     running || !!pendingStrip || loadingTemplate || !!exportingStrip;
@@ -677,8 +685,8 @@ function App() {
         setProgress(0);
         return true;
       }
-      const variant = resolveFrameChoice(templates, id, shots);
-      if (!variant) throw new Error('Choose a frame with 4 photo areas.');
+      const variant = resolveFrameChoice(templates, id, 4);
+      if (!variant) throw new Error('Choose an available photo frame.');
       const result = await window.vyora.getTemplate(variant.id);
       if (attempt !== templateRequest.current) return false;
       if (!result.ok) throw new Error(result.error);
@@ -708,7 +716,7 @@ function App() {
         setTemplates(result.value);
         const availableFrameIds = [
           '',
-          ...groupFrameChoices(result.value, shots).map((item) => item.id),
+          ...groupFrameChoices(result.value, 4).map((item) => item.id),
         ];
         let rememberedFrames: string[] = [];
         try {
@@ -729,11 +737,7 @@ function App() {
         } catch {
           /* Use the default frame. */
         }
-        const rememberedFrame = resolveFrameChoice(
-          result.value,
-          remembered,
-          shots,
-        );
+        const rememberedFrame = resolveFrameChoice(result.value, remembered, 4);
         if (rememberedFrame) {
           const selected = await window.vyora.getTemplate(rememberedFrame.id);
           if (cancelled) return;
@@ -897,9 +901,28 @@ function App() {
       guestPaused ||
       editingTemplate ||
       session.current ||
+      printerPreflight.current ||
+      automaticPrint.job ||
       !camera.canCapture()
     )
       return;
+    if (!selection) {
+      printerPreflight.current = true;
+      try {
+        const check = await window.vyora.checkAutoPrint();
+        if (!check.ok) {
+          setError(check.error);
+          return;
+        }
+      } catch {
+        setError(
+          'Could not check the printer. Check Printer settings before starting.',
+        );
+        return;
+      } finally {
+        printerPreflight.current = false;
+      }
+    }
     const previous = pendingStrip;
     const retakeIds = Array.isArray(selection) ? selection : undefined;
     let targets: CaptureTarget[];
@@ -936,6 +959,7 @@ function App() {
     const captured: PhotoRecord[] = previous ? [...previous.photos] : [];
     setCapturePhotos([...captured]);
     let completed = 0;
+    const replacedSources = new Set<number>();
     const sessionTemplate = previous
       ? previous.template
       : (selectedTemplate ?? undefined);
@@ -1029,6 +1053,7 @@ function App() {
         setFlash(false);
         if (!result.ok) throw new Error(result.error);
         captured[target.index] = result.value;
+        if (target.photoId) replacedSources.add(target.index);
         setCapturePhotos([...captured]);
         setCapturedSlots((current) =>
           current.includes(target.index) ? current : [...current, target.index],
@@ -1068,12 +1093,38 @@ function App() {
           createdAt: previous?.createdAt ?? captured[0].createdAt,
           photos: captured,
           template: sessionTemplate,
+          ...(previous?.photoCrops
+            ? {
+                photoCrops: photoAreaViews(previous).map((area) =>
+                  replacedSources.has(area.photoIndex)
+                    ? { ...DEFAULT_PHOTO_CROP }
+                    : { ...(area.crop ?? DEFAULT_PHOTO_CROP) },
+                ),
+              }
+            : {}),
         });
         setReviewOpen(true);
       }
       setRunning(false);
       session.current = null;
     }
+  }
+
+  async function updatePhotoCrop(areaIndex: number, crop: PhotoCrop) {
+    if (
+      !pendingStrip ||
+      session.current ||
+      savingStrip.current ||
+      exportingStrip
+    )
+      throw new Error('Adjust framing while reviewing your photos.');
+    const result = await window.vyora.setPhotoCrop(
+      pendingStrip.id,
+      areaIndex,
+      crop,
+    );
+    if (!result.ok) throw new Error(result.error);
+    setPendingStrip(result.value);
   }
 
   async function exportStrip(id: string) {
@@ -1133,6 +1184,12 @@ function App() {
     const saved = await saveStrip(pendingStrip.id, true);
     if (saved) {
       setReviewOpen(false);
+      const automatic = await automaticPrint.refresh();
+      if (automatic) {
+        setGuestDone(false);
+        setKioskStripPreview('');
+        return true;
+      }
       if (kioskMode || guestMode === 'self-service') {
         setGuestDone(true);
         try {
@@ -1179,15 +1236,32 @@ function App() {
     });
   }
 
-  function enterKiosk() {
+  async function enterKiosk() {
     if (
       running ||
       pendingStrip ||
       editingTemplate ||
       exportingStrip ||
+      boothOpening ||
+      automaticPrint.job ||
       !kioskFrameIds.length
     )
       return;
+    setBoothOpening(true);
+    try {
+      const check = await window.vyora.checkAutoPrint();
+      if (!check.ok) {
+        setError(check.error);
+        return;
+      }
+    } catch {
+      setError(
+        'Could not check the printer. Check Printer settings before opening the booth.',
+      );
+      return;
+    } finally {
+      setBoothOpening(false);
+    }
     setOrganizerSetup(false);
     setTab('capture');
     setKioskStripPreview('');
@@ -1229,11 +1303,20 @@ function App() {
     if (!ready) await connectCamera();
   }
 
-  function finishKioskSession() {
+  async function finishKioskSession() {
     if (running || pendingStrip) return;
+    if (automaticPrint.job) {
+      if (automaticPrint.job.status !== 'submitted')
+        throw new Error('Wait for printing or ask your organizer for help.');
+      await automaticPrint.release();
+    }
+    resetAfterPrint();
+  }
+
+  function resetAfterPrint() {
     setKioskStripPreview('');
     setGuestDone(false);
-    setKioskStage('design');
+    setKioskStage(kioskMode ? 'design' : 'capture');
     if (!camera.canCapture()) void connectCamera();
     setMessage('Your photos stay on this computer.');
   }
@@ -1250,7 +1333,7 @@ function App() {
     return choices.map((choice) => ({
       id: choice.id,
       name: choice.name,
-      shots: choice.template?.slots.length ?? shots,
+      shots: capturePhotoCount(choice.template),
       preview:
         'data:image/svg+xml;charset=utf-8,' +
         encodeURIComponent(
@@ -1267,15 +1350,28 @@ function App() {
         : kioskStripPreview,
     [pendingStrip, photoEffect, kioskStripPreview],
   );
-  const guestStage = running
-    ? 'capture'
-    : pendingStrip
-      ? 'review'
-      : guestMode === 'self-service' && guestDone
-        ? 'done'
-        : guestMode === 'self-service' && kioskStage === 'design'
-          ? 'design'
-          : 'ready';
+  const guestStage = automaticPrint.job
+    ? 'printing'
+    : running
+      ? 'capture'
+      : pendingStrip
+        ? 'review'
+        : guestMode === 'self-service' && guestDone
+          ? 'done'
+          : guestMode === 'self-service' && kioskStage === 'design'
+            ? 'design'
+            : 'ready';
+  const captureAreas = photoAreaViews(
+    pendingStrip ?? { template: selectedTemplate ?? undefined },
+    shots,
+  );
+  const framing = useCaptureFraming(
+    video,
+    ready,
+    captureAreas,
+    running ? activePhoto - 1 : 0,
+    camera.source === 'tethered',
+  );
   const guest = useGuestController(
     {
       theme,
@@ -1297,10 +1393,18 @@ function App() {
       total: shots,
       message,
       error: cameraError || error,
+      printJob: automaticPrint.job,
       frames: guestFrames,
+      framing,
+      areas: captureAreas,
       photos: (pendingStrip?.photos ?? capturePhotos)
         .filter((photo): photo is PhotoRecord => !!photo)
-        .map(({ id, thumbnail }) => ({ id, thumbnail })),
+        .map(({ id, thumbnail, width, height }) => ({
+          id,
+          thumbnail,
+          width,
+          height,
+        })),
       strip: guestStrip,
     },
     async (command) => {
@@ -1336,6 +1440,15 @@ function App() {
         )
           throw new Error('Choose an effect while reviewing your photos.');
         setPhotoEffect(command.effect);
+      } else if (command.action === 'crop') {
+        if (
+          guestStage !== 'review' ||
+          !pendingStrip ||
+          command.areaIndex == null ||
+          !command.crop
+        )
+          throw new Error('Adjust framing while reviewing your photos.');
+        await updatePhotoCrop(command.areaIndex, command.crop);
       } else if (command.action === 'start') {
         if (pendingStrip || guestStage !== 'ready' || !camera.canCapture())
           throw new Error(
@@ -1361,6 +1474,14 @@ function App() {
             'Your strip could not be saved. Ask the organizer to retry.',
           );
       } else if (command.action === 'next') {
+        if (automaticPrint.job) {
+          if (automaticPrint.job.status !== 'submitted')
+            throw new Error(
+              'Wait for the print and ask your organizer for help.',
+            );
+          await finishKioskSession();
+          return;
+        }
         if (pendingStrip || !guestDone)
           throw new Error('Finish the current session first.');
         finishKioskSession();
@@ -1632,11 +1753,11 @@ function App() {
                   <Icon name="check" size={14} />
                 </span>
                 <span className="booth-frame-preview">
-                  <FramePreview shots={shots} />
+                  <FramePreview shots={4} />
                 </span>
                 <span className="booth-frame-copy">
                   <strong>Doodle No. 01</strong>
-                  <small>{shots} photos · VYORA original</small>
+                  <small>4 photos · VYORA original</small>
                 </span>
               </button>
               {studioFrameChoices.map((choice) => {
@@ -1659,7 +1780,7 @@ function App() {
                     <span className="booth-frame-copy">
                       <strong>{choice.name}</strong>
                       <small>
-                        {template.slots.length} photos ·{' '}
+                        {capturePhotoCount(template)} photos ·{' '}
                         {template.builtIn ? 'Free VYORA frame' : 'custom frame'}
                       </small>
                     </span>
@@ -1705,6 +1826,10 @@ function App() {
                     ))}
                   </div>
                 </fieldset>
+                <AutoPrintSetting
+                  revision={printerRevision}
+                  onPrinterSettings={() => setShowPrinterSettings(true)}
+                />
               </div>
             </section>
             <footer className="booth-setup-footer">
@@ -1715,10 +1840,13 @@ function App() {
               <button
                 className="primary-button kiosk-start-button"
                 type="button"
-                disabled={!kioskFrameIds.length || loadingTemplate}
-                onClick={enterKiosk}
+                disabled={
+                  !kioskFrameIds.length || loadingTemplate || boothOpening
+                }
+                onClick={() => void enterKiosk()}
               >
-                Start full-screen booth <Icon name="arrow" size={17} />
+                {boothOpening ? 'Checking printer…' : 'Start full-screen booth'}{' '}
+                <Icon name="arrow" size={17} />
               </button>
             </footer>
           </section>
@@ -1748,11 +1876,11 @@ function App() {
                   className="kiosk-template-card"
                   type="button"
                   disabled={loadingTemplate}
-                  aria-label={`Choose Doodle No. 01, ${shots} photos`}
+                  aria-label="Choose Doodle No. 01, 4 photos"
                   onClick={() => void startKioskTemplate('')}
                 >
                   <span className="kiosk-template-preview">
-                    <FramePreview shots={shots} />
+                    <FramePreview shots={4} />
                   </span>
                 </button>
               )}
@@ -1764,7 +1892,7 @@ function App() {
                     className="kiosk-template-card"
                     type="button"
                     disabled={loadingTemplate}
-                    aria-label={`Choose ${choice.name}, ${choice.template.slots.length} photos`}
+                    aria-label={`Choose ${choice.name}, ${capturePhotoCount(choice.template)} photos`}
                     onClick={() => void startKioskTemplate(choice.id)}
                   >
                     <span className="kiosk-template-preview">
@@ -1842,6 +1970,13 @@ function App() {
                 className={mirror ? 'mirrored' : ''}
                 hidden={!ready}
               />
+              {ready && (
+                <CaptureFramingGuide
+                  framing={framing}
+                  media={video}
+                  mirrored={mirror}
+                />
+              )}
               {kioskMode && kioskStage === 'capture' && !ready && (
                 <div className="kiosk-camera-notice" role="status">
                   <strong>
@@ -1878,6 +2013,7 @@ function App() {
                   photos={capturePhotos}
                   remaining={Math.max(0, captureGoal - progress)}
                   retaking={retaking}
+                  areas={captureAreas}
                 />
               )}
               <div className="preview-label">
@@ -2291,30 +2427,22 @@ function App() {
                     {[
                       { id: '', name: 'Doodle No. 01', template: undefined },
                       ...studioFrameChoices,
-                      ...olderCustomFrames.map((template) => ({
-                        id: template.id,
-                        name: template.name,
-                        template,
-                      })),
                     ].map(({ id, name, template }) => {
-                      const needsEdit =
-                        !!template && template.slots.length !== shots;
                       const selected = id === activeFrameChoice;
                       return (
                         <button
                           key={id}
                           className="studio-frame-card"
                           type="button"
-                          aria-label={needsEdit ? `${name}, edit to use` : name}
-                          aria-pressed={needsEdit ? undefined : selected}
+                          aria-label={name}
+                          aria-pressed={selected}
                           disabled={studioFramesLocked}
                           onClick={() => {
-                            if (needsEdit) void editSavedTemplate(id);
-                            else if (!selected) void chooseTemplate(id);
+                            if (!selected) void chooseTemplate(id);
                           }}
                         >
                           <span className="studio-frame-art" aria-hidden="true">
-                            <FramePreview template={template} shots={shots} />
+                            <FramePreview template={template} shots={4} />
                             {selected && (
                               <span className="studio-frame-check">
                                 <Icon name="check" size={12} />
@@ -2324,7 +2452,6 @@ function App() {
                           <span className="studio-frame-name" title={name}>
                             {name}
                           </span>
-                          {needsEdit && <small>Edit to use</small>}
                         </button>
                       );
                     })}
@@ -2343,15 +2470,7 @@ function App() {
                       label="Strip template"
                       value={activeFrameChoice}
                       disabled={studioFramesLocked}
-                      onChange={(value) => {
-                        if (
-                          olderCustomFrames.some(
-                            (template) => template.id === value,
-                          )
-                        )
-                          void editSavedTemplate(value);
-                        else void chooseTemplate(value);
-                      }}
+                      onChange={(value) => void chooseTemplate(value)}
                       getActions={(id) => {
                         const target = templates.find(
                           (template) => template.id === id,
@@ -2382,12 +2501,7 @@ function App() {
                           label: choice.name,
                           description: choice.template.builtIn
                             ? 'Free VYORA frame · 4 photos'
-                            : `${choice.template.slots.length} photo areas · custom frame`,
-                        })),
-                        ...olderCustomFrames.map((template) => ({
-                          value: template.id,
-                          label: template.name,
-                          description: 'Edit to add 4 photo areas',
+                            : `${capturePhotoCount(choice.template)} photos · custom frame`,
                         })),
                       ]}
                     />
@@ -2398,7 +2512,10 @@ function App() {
                       shots={shots}
                     />
                     <div>
-                      <strong>{shots} photo openings</strong>
+                      <strong>
+                        {selectedTemplate?.slots.length ?? 4} photo areas ·{' '}
+                        {shots} captures
+                      </strong>
                       <p>Your photos fill the frame automatically.</p>
                     </div>
                   </div>
@@ -2417,7 +2534,7 @@ function App() {
                   >
                     Create a template
                   </button>
-                  <p>PNG or JPEG · 4 photo areas.</p>
+                  <p>PNG or JPEG · place your photo areas in the editor.</p>
                 </div>
               </div>
             </div>
@@ -2588,6 +2705,21 @@ function App() {
           onConfirm={removeSelectedTemplate}
         />
       )}
+      {automaticPrint.job && (
+        <AutoPrintScreen
+          key={automaticPrint.job.id}
+          job={automaticPrint.job}
+          operator
+          onNext={finishKioskSession}
+          onRetry={automaticPrint.retry}
+          issue={automaticPrint.issue}
+          onSettings={() => setShowPrinterSettings(true)}
+          onSkip={async () => {
+            await automaticPrint.release(true);
+            resetAfterPrint();
+          }}
+        />
+      )}
       {reviewOpen && pendingStrip && !running && (
         <CaptureReview
           key={pendingStrip.id}
@@ -2598,6 +2730,7 @@ function App() {
           onEffectChange={(effect) => {
             if (!savingStrip.current) setPhotoEffect(effect);
           }}
+          onCropChange={updatePhotoCrop}
           onContinue={() => void startSession('remaining')}
           timer={timer}
           cameraReady={ready}

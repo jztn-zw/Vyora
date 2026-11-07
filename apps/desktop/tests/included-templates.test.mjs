@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { evenlySpacedSlots } from '../src/template-layout.ts';
+import { capturePhotoCount } from '../src/photo-sources.ts';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
@@ -22,19 +24,61 @@ const directory = fileURLToPath(
 );
 const collection = createIncludedTemplates(directory);
 
-test('the picker groups count variants into seven stable choices and switches their previews', () => {
+test('a fifteen-area linked template retains its assignments after reopening the local store', () => {
+  const testRoot = fileURLToPath(
+    new URL('../out/test-template-store/', import.meta.url),
+  );
+  mkdirSync(testRoot, { recursive: true });
+  const folder = mkdtempSync(path.join(testRoot, 'linked-frame-'));
+  const db = new DatabaseSync(':memory:');
+  try {
+    db.exec(
+      'CREATE TABLE templates (id TEXT, name TEXT, width INTEGER, height INTEGER, slots_json TEXT, layer TEXT, thumbnail TEXT)',
+    );
+    const original = collection.get(collection.list()[0].id);
+    const draft = {
+      ...original,
+      slots: evenlySpacedSlots(15).map((slot, index) => ({
+        ...slot,
+        photoIndex: index % 3,
+      })),
+    };
+    const store = createTemplateStore(db, folder);
+    const saved = store.save(
+      draft,
+      Buffer.from(original.frame.split(',')[1], 'base64'),
+      'thumbnail',
+    );
+    const reopened = createTemplateStore(db, folder);
+    assert.deepEqual(reopened.get(saved.id).slots, draft.slots);
+    assert.equal(capturePhotoCount(reopened.list()[0]), 3);
+  } finally {
+    db.close();
+    assert.equal(path.dirname(folder), path.resolve(testRoot));
+    rmSync(folder, { recursive: true, force: true });
+  }
+});
+
+test('the picker groups variants and keeps native-count designs available', () => {
   const templates = collection.list();
   const ids = groupFrameChoices(templates, 2).map((choice) => choice.id);
   for (const count of [2, 3, 4]) {
     const choices = groupFrameChoices(templates, count);
-    assert.equal(choices.length, 7);
+    assert.equal(choices.length, 11);
     assert.deepEqual(
       choices.map((choice) => choice.id),
       ids,
     );
     for (const choice of choices) {
-      assert.equal(choice.template.slots.length, count);
-      assert.equal(choice.template.id, `${choice.id}-${count}`);
+      const nativeCount = {
+        'vyora-free-flash-notes': 4,
+        'vyora-free-night-index': 3,
+        'vyora-free-lavender-retro': 3,
+        'vyora-free-booth-chronicle': 4,
+      }[choice.id];
+      const expectedCount = nativeCount ?? count;
+      assert.equal(choice.template.slots.length, expectedCount);
+      assert.equal(choice.template.id, `${choice.id}-${expectedCount}`);
       assert.doesNotMatch(choice.name, /· [234] photos/);
       assert.equal(frameChoiceId(choice.template), choice.id);
       assert.equal(frameChoiceName(choice.template), choice.name);
@@ -46,7 +90,7 @@ test('the picker groups count variants into seven stable choices and switches th
   }
 });
 
-test('saved variants migrate to four-photo choices and short custom imports are excluded', () => {
+test('saved variants migrate to four-photo choices and custom imports retain their own capture count', () => {
   const templates = collection.list();
   const custom = {
     ...templates[0],
@@ -62,17 +106,26 @@ test('saved variants migrate to four-photo choices and short custom imports are 
         'vyora-free-film-2',
         'vyora-free-film-4',
         'vyora-free-neon',
+        'vyora-free-night-index-3',
+        'vyora-free-lavender-retro',
         'my-import',
         'missing',
         null,
       ],
       all,
     ),
-    ['', 'vyora-free-film', 'vyora-free-neon'],
+    [
+      '',
+      'vyora-free-film',
+      'vyora-free-neon',
+      'vyora-free-night-index',
+      'vyora-free-lavender-retro',
+      'my-import',
+    ],
   );
-  assert.equal(groupFrameChoices(all, 4).length, 7);
+  assert.equal(groupFrameChoices(all, 4).length, 12);
   assert.equal(frameChoiceName(custom), custom.name);
-  assert.equal(resolveFrameChoice(all, 'my-import', 4), undefined);
+  assert.equal(resolveFrameChoice(all, 'my-import', 4), custom);
   assert.equal(resolveFrameChoice(all, 'missing', 2), undefined);
 });
 
@@ -89,9 +142,9 @@ test('selecting another count resolves a concrete asset with exactly that captur
   }
 });
 
-test('seven included designs each provide exactly 2-, 3- and 4-photo versions', () => {
+test('seven variant families and four native designs form the included collection', () => {
   const frames = collection.list();
-  assert.equal(frames.length, 21);
+  assert.equal(frames.length, 25);
   const families = new Map();
   for (const frame of frames) {
     assert.equal(frame.builtIn, true);
@@ -102,11 +155,18 @@ test('seven included designs each provide exactly 2-, 3- and 4-photo versions', 
     const family = frame.id.slice(0, -2);
     families.set(family, [...(families.get(family) ?? []), frame.slots.length]);
   }
-  assert.equal(families.size, 7);
-  for (const counts of families.values()) assert.deepEqual(counts, [2, 3, 4]);
+  assert.equal(families.size, 11);
+  const nativeCounts = new Map([
+    ['vyora-free-flash-notes', [4]],
+    ['vyora-free-night-index', [3]],
+    ['vyora-free-lavender-retro', [3]],
+    ['vyora-free-booth-chronicle', [4]],
+  ]);
+  for (const [family, counts] of families)
+    assert.deepEqual(counts, nativeCounts.get(family) ?? [2, 3, 4]);
 });
 
-test('full artwork dimensions and ordered photo areas are valid for all 21 exports', () => {
+test('full artwork dimensions and ordered photo areas are valid for all exports', () => {
   for (const summary of collection.list()) {
     const template = collection.get(summary.id);
     const png = Buffer.from(template.frame.split(',')[1], 'base64');
@@ -126,7 +186,11 @@ test('full artwork dimensions and ordered photo areas are valid for all 21 expor
     assert.ok(svg.includes(template.frame));
     assert.ok(
       template.slots.every(
-        (slot, i) => i === 0 || slot.y > template.slots[i - 1].y,
+        (slot, i) =>
+          i === 0 ||
+          slot.y > template.slots[i - 1].y ||
+          (slot.y === template.slots[i - 1].y &&
+            slot.x > template.slots[i - 1].x),
       ),
     );
   }
@@ -142,14 +206,14 @@ test('original-count artwork is preserved byte for byte', () => {
       .digest('hex');
     assert.equal(actual, source.sha256, source.file);
   }
-  assert.equal(provenance.originals.length, 6);
+  assert.equal(provenance.originals.length, 10);
 });
 
 test('picker summaries are defensive copies and asset IDs cannot read arbitrary paths', () => {
   const frames = collection.list();
   frames[0].slots[0].x = 999;
   frames.pop();
-  assert.equal(collection.list().length, 21);
+  assert.equal(collection.list().length, 25);
   assert.ok(collection.list()[0].slots[0].x < 1);
   for (const id of [
     '../outside',
@@ -178,7 +242,7 @@ test('free frames coexist with the custom library and cannot be edited or remove
       'thumbnail',
     );
     const store = createTemplateStore(db, directory, collection);
-    assert.equal(store.list().length, 22);
+    assert.equal(store.list().length, 26);
     assert.equal(store.list().at(-1).name, 'My frame');
     for (const summary of collection.list()) {
       const original = store.get(summary.id);

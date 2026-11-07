@@ -1,13 +1,24 @@
 # Included VYORA frames
 
-The desktop app ships seven free frame designs, each with 2-, 3- and 4-photo
-versions (21 layouts). Instagram and 1-photo versions are excluded.
+The desktop app ships eleven free frame designs (25 layouts). Seven designs
+provide 2-, 3- and 4-photo versions. The four newer designs use their supplied
+photo counts and full-resolution artwork.
 
-Designs: Classic, Film 400, Urban Pop, Neon Orbit, Good Vibes, Vintage Memories,
-and Pink Friends. Each design appears once under **Strip template**, organizer
-setup and the guest frame picker. Use **Photos per session** to switch its 2-,
-3- or 4-photo layout and preview. Organizer setup applies its count to all
-included VYORA frames; imported custom frames retain their own photo counts.
+- Flash Notes has four photos, following the printed 01–04 labels.
+- Night Index has three photos, starting with the large right opening, then
+  the two smaller left openings from top to bottom.
+- Lavender Retro has three photos from top to bottom.
+- Booth Chronicle has four photos in reading order, left to right on each row.
+
+These four choices stay available at their native capture count in Studio and
+the guest booth. Their photo bounds follow the PNG's actual transparent openings,
+with a small bleed under the frame edges. All four originals are preserved byte
+for byte and recorded in `provenance.json`.
+
+The seven designs with count variants are Classic, Film 400, Urban Pop,
+Neon Orbit, Good Vibes, Vintage Memories, and Pink Friends. Each design appears
+once under **Strip template**, organizer setup and the guest frame picker.
+Native designs and imported custom frames retain their own photo counts.
 Previously saved variant selections migrate to their single design choice.
 
 Full-resolution transparent PNGs, picker previews, and the layout manifest live

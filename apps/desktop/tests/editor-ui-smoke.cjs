@@ -491,6 +491,50 @@ app.whenReady().then(async () => {
     await until(
       "!document.querySelector('.template-photo-area.selected') && !document.querySelector('.template-tilt-stepper')",
     );
+    await evaluate("document.querySelector('.template-photo-move').click()");
+    await evaluate(
+      "Array.from(document.querySelectorAll('.template-controls button')).find(button => button.textContent.trim() === 'Duplicate area').click()",
+    );
+    await until(
+      "document.querySelectorAll('.template-photo-area:not(.drawing)').length === 3",
+    );
+    assert.deepEqual(
+      await evaluate(
+        "Array.from(document.querySelectorAll('.template-photo-area > b'), label => label.textContent)",
+      ),
+      ['1', '2', '1'],
+      'Duplicated areas share the selected photo number',
+    );
+    await evaluate(`(() => {
+      const input = document.querySelector('input[aria-label="Number of areas"]');
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, '15');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    })()`);
+    await until(
+      "document.querySelectorAll('.template-photo-area:not(.drawing)').length === 15",
+    );
+    assert.match(
+      await evaluate(
+        "document.querySelector('.template-workspace').textContent",
+      ),
+      /Maximum of 15 photo areas reached/,
+    );
+    // Undo the count change and duplicate so the existing save checks use the imported frame.
+    await evaluate("document.querySelector('[aria-label^=Undo]').click()");
+    await until(
+      "document.querySelectorAll('.template-photo-area:not(.drawing)').length === 3",
+    );
+    await evaluate("document.querySelector('[aria-label^=Undo]').click()");
+    await until(
+      "document.querySelectorAll('.template-photo-area:not(.drawing)').length === 2",
+    );
+    assert.ok(
+      !(
+        await evaluate(
+          "document.querySelector('.template-workspace').textContent",
+        )
+      ).includes('Maximum of 15'),
+    );
     await addMissingAreas();
     await until(
       "!document.querySelector('.template-dialog-footer .primary-button').disabled",
@@ -622,12 +666,24 @@ app.whenReady().then(async () => {
     await evaluate(
       "Array.from(document.querySelectorAll('.studio-select-option')).find(option => option.textContent.includes('Legacy short frame')).click()",
     );
+    await until(
+      "document.querySelector('.frame-preview-card strong').textContent.includes('2 captures')",
+    );
+    assert.equal(
+      await evaluate("!!document.querySelector('.template-dialog[open]')"),
+      false,
+      'An existing short frame is selectable without adding more areas',
+    );
+    await openTools();
+    await evaluate(
+      "document.querySelector('.studio-select-tools-toolbar:popover-open button').click()",
+    );
     await until("!!document.querySelector('.template-dialog[open]')");
     assert.equal(
       await evaluate(
         "document.querySelector('.template-dialog-footer .primary-button').disabled",
       ),
-      true,
+      false,
     );
     await addMissingAreas();
     await evaluate(

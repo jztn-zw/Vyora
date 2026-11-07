@@ -1,5 +1,16 @@
 import { randomUUID } from 'node:crypto';
-import type { PhotoRecord, StripRecord, StripTemplate } from '@vyora/shared';
+import type {
+  PhotoCrop,
+  PhotoRecord,
+  StripRecord,
+  StripTemplate,
+} from '@vyora/shared';
+import { capturePhotoCount } from '../photo-sources.ts';
+import {
+  DEFAULT_PHOTO_CROP,
+  photoAreaViews,
+  validatePhotoCrop,
+} from '../photo-framing.ts';
 
 const validId =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -10,6 +21,7 @@ export function createSessionBuffer() {
   let photos: { record: PhotoRecord; jpeg: Buffer }[] = [];
   let template: StripTemplate | undefined;
   let createdAt = '';
+  let photoCrops: PhotoCrop[] | undefined;
   return {
     stage(
       id: string,
@@ -21,7 +33,7 @@ export function createSessionBuffer() {
       if (
         !validId.test(id) ||
         (sessionId && sessionId !== id) ||
-        photos.length >= (template?.slots.length ?? 4) ||
+        photos.length >= capturePhotoCount(template ?? selectedTemplate) ||
         (sessionId && template?.id !== selectedTemplate?.id)
       ) {
         throw new Error(
@@ -57,7 +69,31 @@ export function createSessionBuffer() {
         thumbnail,
       };
       photos[index] = { record, jpeg };
+      if (photoCrops)
+        photoCrops = photoAreaViews({ template, photoCrops }).map((area) => ({
+          ...(area.photoIndex === index
+            ? DEFAULT_PHOTO_CROP
+            : (area.crop ?? DEFAULT_PHOTO_CROP)),
+        }));
       return record;
+    },
+    setCrop(id: string, areaIndex: number, input: unknown) {
+      const areas = photoAreaViews({ template, photoCrops });
+      if (
+        !validId.test(id) ||
+        id !== sessionId ||
+        !Number.isInteger(areaIndex) ||
+        areaIndex < 0 ||
+        areaIndex >= areas.length ||
+        !photos[areas[areaIndex].photoIndex]
+      )
+        throw new Error(
+          'Choose a captured photo area from the current session.',
+        );
+      const crop = validatePhotoCrop(input);
+      photoCrops = areas.map((area, index) => ({
+        ...(index === areaIndex ? crop : (area.crop ?? DEFAULT_PHOTO_CROP)),
+      }));
     },
     has(id: string) {
       return sessionId === id && photos.length > 0;
@@ -69,6 +105,9 @@ export function createSessionBuffer() {
             createdAt,
             photos: photos.map(({ record }) => ({ ...record })),
             template,
+            ...(photoCrops
+              ? { photoCrops: photoCrops.map((crop) => ({ ...crop })) }
+              : {}),
           }
         : undefined;
     },
@@ -78,6 +117,9 @@ export function createSessionBuffer() {
       return {
         id,
         template,
+        ...(photoCrops
+          ? { photoCrops: photoCrops.map((crop) => ({ ...crop })) }
+          : {}),
         createdAt,
         photos: photos.map(({ record, jpeg }) => ({
           ...record,
@@ -90,6 +132,7 @@ export function createSessionBuffer() {
       photos = [];
       sessionId = '';
       template = undefined;
+      photoCrops = undefined;
       createdAt = '';
     },
   };

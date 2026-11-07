@@ -37,6 +37,10 @@ app.whenReady().then(async () => {
       count = 0,
       saveCount = 0,
       reply;
+    let autoEnabled = false,
+      printerConnected = true,
+      autoJob = null,
+      printCount = 0;
     const pixel = nativeImage
       .createFromBitmap(Buffer.alloc(64 * 48 * 4, 180), {
         width: 64,
@@ -115,7 +119,64 @@ app.whenReady().then(async () => {
         pendingStrip: strip || undefined,
       },
     }));
-    handle('printer:state', () => ({ ok: false, error: 'No fixture printer' }));
+    const printerState = () => ({
+      devices: [
+        {
+          name: 'Fixture photo printer',
+          displayName: 'Fixture photo printer',
+          readiness: printerConnected ? 'ready' : 'unavailable',
+          statusMessage: printerConnected
+            ? 'Windows reports this printer ready.'
+            : 'The printer is offline.',
+        },
+      ],
+      settings: {
+        deviceName: 'Fixture photo printer',
+        layout: 'double-strip',
+        copies: 1,
+        autoPrint: autoEnabled,
+      },
+      settingsIssue: '',
+      busy: false,
+      job: autoJob,
+      autoPrint: autoJob,
+    });
+    handle('printer:state', () => ({ ok: true, value: printerState() }));
+    handle('printer:activity', () => ({
+      ok: true,
+      value: {
+        busy: ['preparing', 'submitting'].includes(autoJob?.status),
+        autoPrint: autoJob,
+      },
+    }));
+    handle('printer:auto-check', () =>
+      autoEnabled && !printerConnected
+        ? { ok: false, error: 'The printer is offline.' }
+        : { ok: true },
+    );
+    handle('printer:auto-setting', (enabled) => {
+      assert.ok(printerConnected || !enabled);
+      autoEnabled = enabled;
+      return { ok: true, value: printerState() };
+    });
+    handle('printer:auto-release', ({ id, checked }) => {
+      assert.equal(id, autoJob.stripId);
+      assert.ok(autoJob.status === 'submitted' || checked);
+      autoJob = null;
+      return { ok: true };
+    });
+    handle('printer:auto-retry', (id) => {
+      assert.equal(id, autoJob.stripId);
+      assert.equal(autoJob.status, 'failed');
+      if (!printerConnected)
+        return { ok: false, error: 'The printer is offline.' };
+      autoJob = {
+        ...autoJob,
+        id: `print-${++printCount}`,
+        status: 'submitting',
+      };
+      return { ok: true, value: autoJob };
+    });
     handle('session:capture', ({ jpeg, sessionId }) => {
       count++;
       const photo = {
@@ -134,9 +195,22 @@ app.whenReady().then(async () => {
       photo.thumbnail = nativeImage
         .createFromBuffer(Buffer.from(jpeg))
         .toDataURL();
+      const index = strip.photos.indexOf(photo);
+      if (strip.photoCrops)
+        strip.photoCrops[index] = { x: 0.5, y: 0.5, zoom: 1 };
       return { ok: true, value: photo };
     });
     handle('strip:sources', () => ({ ok: true, value: strip }));
+    handle('session:crop', ({ id, areaIndex, crop }) => {
+      assert.equal(id, strip.id);
+      strip.photoCrops ||= Array.from({ length: 4 }, () => ({
+        x: 0.5,
+        y: 0.5,
+        zoom: 1,
+      }));
+      strip.photoCrops[areaIndex] = crop;
+      return { ok: true, value: structuredClone(strip) };
+    });
     handle('strip:save', ({ jpeg }) => {
       saveCount++;
       saved = {
@@ -147,6 +221,16 @@ app.whenReady().then(async () => {
           .toDataURL(),
       };
       strip = null;
+      if (autoEnabled)
+        autoJob = {
+          id: `print-${++printCount}`,
+          stripId: saved.id,
+          status: 'submitting',
+          message: 'Sending to printer…',
+          printerName: 'Fixture photo printer',
+          sheets: 1,
+          stripsPerSheet: 2,
+        };
       return { ok: true, value: 'fixture.jpg' };
     });
     handle('strip:preview', () => ({
@@ -295,6 +379,53 @@ app.whenReady().then(async () => {
       ),
       true,
     );
+    await until(
+      host,
+      "!!document.querySelector('.auto-print-toggle input:not(:disabled)')",
+    );
+    await run(
+      host,
+      "document.querySelector('.auto-print-toggle input').click()",
+    );
+    await until(
+      host,
+      "document.querySelector('.auto-print-toggle input').checked && !document.querySelector('.auto-print-toggle input').disabled",
+    );
+    assert.equal(autoEnabled, true);
+    await run(
+      host,
+      "document.querySelector('.booth-session-settings').scrollIntoView({ block: 'center' })",
+    );
+    await capture(host, 'auto-print-setting.png');
+    assert.equal(
+      await run(
+        host,
+        "getComputedStyle(document.querySelector('.auto-print-toggle input')).opacity",
+      ),
+      '0',
+      'The native checkbox stays hidden behind the themed switch',
+    );
+    if (process.env.VYORA_TEST_PRINT_SETTINGS_ONLY === '1') {
+      console.log(
+        'PASS: auto-print setup, saved selection, and themed switch layout',
+      );
+      return;
+    }
+    printerConnected = false;
+    await run(
+      host,
+      "document.querySelector('.booth-setup-footer .primary-button').click()",
+    );
+    await until(
+      host,
+      "document.body.textContent.includes('The printer is offline.')",
+    );
+    assert.equal(
+      await run(host, "!!document.querySelector('.booth-setup')"),
+      true,
+      'Offline printer prevents opening an auto-print booth',
+    );
+    printerConnected = true;
     await run(
       host,
       "document.querySelector('.booth-setup-footer .primary-button').click()",
@@ -350,6 +481,10 @@ app.whenReady().then(async () => {
     await run(guest, "document.querySelector('.kiosk-back-button').click()");
     await until(guest, "!!document.querySelector('.kiosk-template-grid')");
     await until(host, "!!document.querySelector('.kiosk-stage-design')");
+    await until(
+      guest,
+      "!!document.querySelector('.kiosk-template-grid button:not(:disabled)')",
+    );
     await run(
       guest,
       "document.querySelector('.kiosk-template-grid button').click()",
@@ -376,6 +511,37 @@ app.whenReady().then(async () => {
     await capture(guest, 'guest-review.png');
     await run(
       guest,
+      "document.querySelector('.photo-positioner > button').click()",
+    );
+    await until(guest, "!!document.querySelector('.photo-positioner-canvas')");
+    await run(
+      guest,
+      `(() => {
+      const input = document.querySelector('[aria-label="Photo zoom"]');
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, '1.5');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    })()`,
+    );
+    await until(
+      guest,
+      "document.querySelector('.photo-positioner-zoom output').textContent === '1.50×'",
+    );
+    await run(
+      guest,
+      "document.querySelector('.photo-positioner-actions .primary-button').click()",
+    );
+    await until(guest, "!document.querySelector('.photo-positioner-canvas')");
+    assert.equal(
+      strip.photoCrops[0].zoom,
+      1.5,
+      'Guest positioning updates the host session',
+    );
+    await until(
+      host,
+      "decodeURIComponent(document.querySelector('.capture-review-preview img').src).includes('width=\"900\"')",
+    );
+    await run(
+      guest,
       "document.querySelector('.guest-retake-grid button').click()",
     );
     await run(
@@ -396,9 +562,60 @@ app.whenReady().then(async () => {
     );
     await until(
       guest,
-      "document.body.textContent.includes('Your strip is ready.')",
+      "!!document.querySelector('.auto-print-screen[aria-busy=true]')",
     );
     assert.equal(saveCount, 1);
+    assert.equal(printCount, 1);
+    assert.equal(
+      await run(guest, "!!document.querySelector('.auto-print-card > button')"),
+      false,
+      'No next customer while submitting',
+    );
+    await capture(guest, 'auto-print-loading.png');
+    printerConnected = false;
+    autoJob.status = 'failed';
+    autoJob.message = 'The printer is offline.';
+    await until(
+      host,
+      "document.querySelector('#auto-print-title')?.textContent.includes('needs a hand')",
+    );
+    await until(
+      guest,
+      "document.querySelector('#auto-print-title')?.textContent.includes('needs a hand')",
+    );
+    assert.equal(
+      await run(guest, "!!document.querySelector('.auto-print-recovery')"),
+      false,
+      'Guests cannot retry or skip failed prints',
+    );
+    await run(
+      host,
+      "document.querySelector('.auto-print-recovery .primary-button').click()",
+    );
+    await until(
+      host,
+      "!!document.querySelector('.auto-print-card [role=alert]')",
+    );
+    assert.equal(printCount, 1, 'Offline retry cannot submit');
+    printerConnected = true;
+    await run(
+      host,
+      "document.querySelector('.auto-print-recovery .primary-button').click()",
+    );
+    await until(
+      host,
+      "!!document.querySelector('.auto-print-screen[aria-busy=true]')",
+    );
+    assert.equal(
+      printCount,
+      2,
+      'Only explicit operator retry submits another job',
+    );
+    autoJob.status = 'submitted';
+    await until(
+      guest,
+      "document.querySelector('#auto-print-title')?.textContent === 'Sent to the printer.' && !!document.querySelector('.auto-print-card > button:not(:disabled)')",
+    );
     const savedImage = nativeImage.createFromDataURL(saved.preview);
     const bitmap = savedImage.toBitmap();
     const offset = (70 * savedImage.getSize().width + 120) * 4;
@@ -436,7 +653,7 @@ app.whenReady().then(async () => {
     hub.approve(device.id);
     await until(
       tablet,
-      "document.body.textContent.includes('Your strip is ready.')",
+      "document.body.textContent.includes('Sent to the printer.')",
     );
     assert.equal(await run(tablet, 'typeof window.vyora'), 'undefined');
     tablet.setSize(800, 1100);
@@ -444,7 +661,7 @@ app.whenReady().then(async () => {
     await tablet.reload();
     await until(
       tablet,
-      "document.body.textContent.includes('Your strip is ready.')",
+      "document.body.textContent.includes('Sent to the printer.')",
     );
     hub.revoke(device.id);
     await until(
@@ -457,9 +674,11 @@ app.whenReady().then(async () => {
     );
     await run(
       guest,
-      "document.querySelector('.guest-done .primary-button').click()",
+      "document.querySelector('.auto-print-card > .primary-button').click()",
     );
     await until(guest, "!!document.querySelector('.kiosk-template-grid')");
+    assert.equal(autoJob, null);
+    autoEnabled = false;
     await run(host, "document.querySelector('.kiosk-exit-button').click()");
     await until(host, "!!document.querySelector('.exit-booth-dialog[open]')");
     await run(
@@ -524,6 +743,24 @@ app.whenReady().then(async () => {
     );
     console.log('Artifacts: ' + artifacts);
   } catch (error) {
+    for (const [name, window] of [
+      ['host', host],
+      ['guest', guest],
+    ])
+      if (window && !window.isDestroyed()) {
+        console.error(
+          name,
+          await window.webContents
+            .executeJavaScript(
+              "({ text: document.body.innerText.slice(-2500), disabled: Array.from(document.querySelectorAll('button:disabled'), button => button.textContent) })",
+            )
+            .catch(() => 'unavailable'),
+        );
+        fs.writeFileSync(
+          path.join(artifacts, `failure-${name}.png`),
+          (await window.webContents.capturePage()).toPNG(),
+        );
+      }
     console.error(error);
     process.exitCode = 1;
   } finally {

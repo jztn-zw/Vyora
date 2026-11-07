@@ -586,5 +586,129 @@
     ],
     "file": "pink-4.png",
     "preview": "pink-4-preview.png"
+  },
+  {
+    "id": "vyora-free-flash-notes-4",
+    "name": "VYORA Flash Notes · 4 photos",
+    "width": 1365,
+    "height": 2048,
+    "slots": [
+      {
+        "x": 0.5399267399267399,
+        "y": 0.1044921875,
+        "width": 0.4065934065934066,
+        "height": 0.3115234375
+      },
+      {
+        "x": 0.054212454212454214,
+        "y": 0.1806640625,
+        "width": 0.40586080586080586,
+        "height": 0.3115234375
+      },
+      {
+        "x": 0.5399267399267399,
+        "y": 0.490234375,
+        "width": 0.4065934065934066,
+        "height": 0.31103515625
+      },
+      {
+        "x": 0.054212454212454214,
+        "y": 0.5654296875,
+        "width": 0.40586080586080586,
+        "height": 0.31103515625
+      }
+    ],
+    "file": "flash-notes-4.png",
+    "preview": "flash-notes-4-preview.png"
+  },
+  {
+    "id": "vyora-free-night-index-3",
+    "name": "VYORA Night Index · 3 photos",
+    "width": 1365,
+    "height": 2048,
+    "slots": [
+      {
+        "x": 0.36043956043956044,
+        "y": 0.2421875,
+        "width": 0.589010989010989,
+        "height": 0.55322265625
+      },
+      {
+        "x": 0.08131868131868132,
+        "y": 0.50537109375,
+        "width": 0.2454212454212454,
+        "height": 0.20654296875
+      },
+      {
+        "x": 0.08131868131868132,
+        "y": 0.72607421875,
+        "width": 0.2454212454212454,
+        "height": 0.20654296875
+      }
+    ],
+    "file": "night-index-3.png",
+    "preview": "night-index-3-preview.png"
+  },
+  {
+    "id": "vyora-free-lavender-retro-3",
+    "name": "VYORA Lavender Retro · 3 photos",
+    "width": 724,
+    "height": 2172,
+    "slots": [
+      {
+        "x": 0.04419889502762431,
+        "y": 0.11970534069981584,
+        "width": 0.8964088397790055,
+        "height": 0.2605893186003683
+      },
+      {
+        "x": 0.05662983425414365,
+        "y": 0.39594843462246776,
+        "width": 0.8867403314917127,
+        "height": 0.21639042357274402
+      },
+      {
+        "x": 0.05939226519337017,
+        "y": 0.6252302025782689,
+        "width": 0.8756906077348067,
+        "height": 0.23066298342541436
+      }
+    ],
+    "file": "lavender-retro-3.png",
+    "preview": "lavender-retro-3-preview.png"
+  },
+  {
+    "id": "vyora-free-booth-chronicle-4",
+    "name": "VYORA Booth Chronicle · 4 photos",
+    "width": 1024,
+    "height": 1536,
+    "slots": [
+      {
+        "x": 0.05078125,
+        "y": 0.15234375,
+        "width": 0.44140625,
+        "height": 0.375
+      },
+      {
+        "x": 0.5087890625,
+        "y": 0.15234375,
+        "width": 0.4404296875,
+        "height": 0.375
+      },
+      {
+        "x": 0.05078125,
+        "y": 0.5384114583333334,
+        "width": 0.44140625,
+        "height": 0.3756510416666667
+      },
+      {
+        "x": 0.5087890625,
+        "y": 0.5384114583333334,
+        "width": 0.4404296875,
+        "height": 0.3756510416666667
+      }
+    ],
+    "file": "booth-chronicle-4.png",
+    "preview": "booth-chronicle-4-preview.png"
   }
 ]

@@ -25,12 +25,13 @@ export function resolveFrameChoice(
   const choice = templates.find(
     (template) => template.id === id || frameChoiceId(template) === id,
   );
-  if (!choice || !choice.builtIn)
-    return choice?.slots.length === shots ? choice : undefined;
-  return templates.find(
-    (template) =>
-      frameChoiceId(template) === frameChoiceId(choice) &&
-      template.slots.length === shots,
+  if (!choice || !choice.builtIn) return choice;
+  const variants = templates.filter(
+    (template) => frameChoiceId(template) === frameChoiceId(choice),
+  );
+  return (
+    variants.find((template) => template.slots.length === shots) ??
+    (variants.length === 1 ? variants[0] : undefined)
   );
 }
 

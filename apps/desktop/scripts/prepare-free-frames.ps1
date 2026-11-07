@@ -12,14 +12,20 @@ $families = [ordered]@{
   'good-vibes' = 'VYORA Good Vibes'
   'vintage' = 'VYORA Vintage Memories'
   'pink' = 'VYORA Pink Friends'
+  'flash-notes' = 'VYORA Flash Notes'
+  'night-index' = 'VYORA Night Index'
+  'lavender-retro' = 'VYORA Lavender Retro'
+  'booth-chronicle' = 'VYORA Booth Chronicle'
 }
+$nativeCounts = @{ 'flash-notes'=4; 'night-index'=3; 'lavender-retro'=3; 'booth-chronicle'=4 }
 $entries = @()
 foreach ($family in $families.Keys) {
-  foreach ($count in 2..4) {
+  $counts = if ($nativeCounts.ContainsKey($family)) { @($nativeCounts[$family]) } else { 2..4 }
+  foreach ($count in $counts) {
     $file = "$family-$count.png"
     $info = $audit | Where-Object file -eq $file
     if (!$info -or $info.areas.Count -ne $count) { throw "Wrong number of transparent openings: $file" }
-    $slots = @($info.areas | Sort-Object y | ForEach-Object {
+    $slots = @($info.areas | Sort-Object y,x | ForEach-Object {
       # Small bleed under the alpha edge prevents white hairlines around photos.
       $pad = if ($file -eq 'neon-4.png') { 12 } else { 3 }
       $left = [Math]::Max(0, $_.x - $pad)
@@ -44,7 +50,9 @@ foreach ($family in $families.Keys) {
 $entries | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $assetDirectory 'index.json') -Encoding utf8NoBOM
 
 # A diagnostic contact sheet renders numbered photo placeholders behind each PNG.
-$sheet = [System.Drawing.Bitmap]::new(1400, 1000)
+$columns = 7
+$rows = [int][Math]::Ceiling($entries.Count / $columns)
+$sheet = [System.Drawing.Bitmap]::new($columns * 200, $rows * 330)
 $g = [System.Drawing.Graphics]::FromImage($sheet)
 $g.Clear([System.Drawing.ColorTranslator]::FromHtml('#1e1b24'))
 $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
@@ -52,9 +60,10 @@ $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQuality
 $font = [System.Drawing.Font]::new('Segoe UI', 10)
 $numberFont = [System.Drawing.Font]::new('Segoe UI', 16, [System.Drawing.FontStyle]::Bold)
 $colors = @('#d9cbea','#c0dce9','#f0d8c5','#cce0d2')
-for ($column=0; $column -lt 7; $column++) {
-  for ($row=0; $row -lt 3; $row++) {
-    $entry = $entries[$column * 3 + $row]
+for ($entryIndex=0; $entryIndex -lt $entries.Count; $entryIndex++) {
+    $column = $entryIndex % $columns
+    $row = [int][Math]::Floor($entryIndex / $columns)
+    $entry = $entries[$entryIndex]
     $height = 275.0
     $width = [Math]::Min(178, $height * $entry.width / $entry.height)
     $height = $width * $entry.height / $entry.width
@@ -79,7 +88,6 @@ for ($column=0; $column -lt 7; $column++) {
     $g.DrawImage($source, [single]$x, [single]$y, [single]$width, [single]$height)
     $source.Dispose()
     $g.DrawString($entry.name, $font, [System.Drawing.Brushes]::White, [single]($column*200+8), [single]($row*330+294))
-  }
 }
 $g.Dispose(); $font.Dispose(); $numberFont.Dispose()
 $sheet.Save((Join-Path $desktopRoot 'out/free-frame-collection-preview.png'), [System.Drawing.Imaging.ImageFormat]::Png)

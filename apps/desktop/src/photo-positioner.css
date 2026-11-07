@@ -1,0 +1,107 @@
+.photo-area-image {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  background: var(--surface-inset);
+}
+.capture-review-photo .photo-area-image {
+  border-radius: 5px;
+  max-height: 140px;
+}
+.photo-positioner {
+  margin: 18px 0;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+.photo-positioner-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.photo-positioner-heading h3 {
+  font-size: 14px;
+  margin: 0;
+}
+.photo-positioner label {
+  display: block;
+  font-size: 11px;
+  color: var(--ink);
+}
+.photo-positioner select {
+  display: block;
+  width: 100%;
+  margin: 8px 0 14px;
+  min-height: 40px;
+}
+.photo-positioner-canvas {
+  position: relative;
+  max-height: 260px;
+  max-width: 100%;
+  margin: 0 auto;
+  overflow: hidden;
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+}
+.photo-positioner-canvas:active {
+  cursor: grabbing;
+}
+.photo-positioner-canvas .photo-area-image {
+  height: 100%;
+  pointer-events: none;
+}
+.photo-positioner-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      to right,
+      transparent calc(33.333% - 0.5px),
+      #ffffff55 33.333%,
+      transparent calc(33.333% + 0.5px),
+      transparent calc(66.666% - 0.5px),
+      #ffffff55 66.666%,
+      transparent calc(66.666% + 0.5px)
+    ),
+    linear-gradient(
+      to bottom,
+      transparent calc(33.333% - 0.5px),
+      #ffffff55 33.333%,
+      transparent calc(33.333% + 0.5px),
+      transparent calc(66.666% - 0.5px),
+      #ffffff55 66.666%,
+      transparent calc(66.666% + 0.5px)
+    );
+}
+.photo-positioner p {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+.photo-positioner-zoom output {
+  float: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+.photo-positioner-zoom input {
+  display: block;
+  width: 100%;
+  margin: 12px 0;
+  accent-color: var(--accent);
+}
+.photo-positioner-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding-block: 12px;
+  background: var(--paper);
+}

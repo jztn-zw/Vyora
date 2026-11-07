@@ -22,6 +22,7 @@ import {
   validatePrintRequest,
 } from '../src/printing/print-layout.ts';
 import { submitPrintWindow } from '../src/printing/print-window.ts';
+import { describePrinter } from '../src/printing/printer-readiness.ts';
 
 const settings = {
   deviceName: 'PhotoPrinter-System-Name',
@@ -141,6 +142,166 @@ test('detection never selects or prints without saved operator settings', async 
   assert.equal(state.busy, false);
   assert.throws(() => f.service.start(printRequest()), /Choose and save/);
   assert.equal(f.submissions.length, 0);
+});
+
+test('auto-print uses Windows readiness and rejects offline, error, unknown and virtual printers', async (t) => {
+  for (const status of [
+    0x80, 0x1, 0x2, 0x8, 0x10, 0x1000, 0x400000, 0x800000,
+  ]) {
+    assert.notEqual(
+      describePrinter({ name: 'Photo', status }, 'win32').readiness,
+      'ready',
+    );
+  }
+  assert.equal(
+    describePrinter({ name: 'Photo', status: 0 }, 'win32').readiness,
+    'ready',
+  );
+  assert.equal(
+    describePrinter({ name: 'Photo', status: 0x400 }, 'win32').readiness,
+    'ready',
+  );
+  assert.equal(
+    describePrinter({ name: 'Photo' }, 'win32').readiness,
+    'unknown',
+  );
+  for (const status of [-1, 1.5, 0x100000000])
+    assert.equal(
+      describePrinter({ name: 'Photo', status }, 'win32').readiness,
+      'unknown',
+    );
+  for (const status of [0x200000, 0x2000000])
+    assert.equal(
+      describePrinter({ name: 'Photo', status }, 'win32').readiness,
+      'unavailable',
+    );
+  assert.equal(
+    describePrinter({ name: 'Microsoft Print to PDF', status: 0 }, 'win32')
+      .virtual,
+    true,
+  );
+  const f = await fixture(t);
+  await assert.rejects(f.service.setAutoPrint(true), /not confirmed/);
+  assert.equal(f.current.autoPrint, undefined);
+  f.devices[0] = describePrinter(
+    { name: settings.deviceName, status: 0 },
+    'win32',
+  );
+  await f.service.setAutoPrint(true);
+  assert.equal(f.current.autoPrint, true);
+  assert.equal(
+    f.submissions.length,
+    0,
+    'Enabling and preflighting never print',
+  );
+  await f.service.checkAutoPrint();
+  f.devices[0] = describePrinter(
+    { name: settings.deviceName, status: 0x80 },
+    'win32',
+  );
+  await assert.rejects(f.service.checkAutoPrint(), /offline/);
+  f.devices = [];
+  await f.service.setAutoPrint(false);
+  await f.service.checkAutoPrint();
+});
+
+test('one saved session auto-prints once and holds the next group until release', async (t) => {
+  const f = await fixture(t, { ...settings, autoPrint: true });
+  f.devices[0] = describePrinter(
+    { name: settings.deviceName, status: 0 },
+    'win32',
+  );
+  const pending = deferred();
+  f.adapter.submit = async (_html, _settings, _signal, onSubmitting) => {
+    onSubmitting();
+    f.submissions.push('job');
+    await pending.promise;
+  };
+  const id = randomUUID();
+  f.service.autoStart(id);
+  f.service.autoStart(id);
+  await flush();
+  assert.equal(f.submissions.length, 1);
+  assert.equal(f.service.activity().autoPrint.status, 'submitting');
+  await assert.rejects(f.service.checkAutoPrint(), /Finish the current/);
+  assert.throws(() => f.service.releaseAutoPrint(id, true));
+  assert.throws(() => f.service.start(printRequest()), /automatic print/);
+  pending.resolve();
+  await flush();
+  assert.equal(f.service.activity().autoPrint.status, 'submitted');
+  await assert.rejects(f.service.checkAutoPrint(), /Finish the current/);
+  f.service.releaseAutoPrint(id, false);
+  assert.equal(f.service.activity().autoPrint, null);
+  await f.service.checkAutoPrint();
+  f.service.autoStart(id);
+  await flush();
+  assert.equal(
+    f.submissions.length,
+    1,
+    'Release and repeated save callbacks cannot reprint the same session',
+  );
+});
+
+test('disconnect after capture preserves a failed auto-print for operator retry without resending silently', async (t) => {
+  const f = await fixture(t, { ...settings, autoPrint: true });
+  const id = randomUUID();
+  f.devices[0] = describePrinter(
+    { name: settings.deviceName, status: 0x80 },
+    'win32',
+  );
+  f.service.autoStart(id);
+  await flush();
+  assert.equal(f.service.activity().autoPrint.status, 'failed');
+  assert.equal(f.submissions.length, 0);
+  assert.throws(() => f.service.releaseAutoPrint(id, false));
+  await assert.rejects(f.service.retryAutoPrint(id), /offline/);
+  f.devices[0] = describePrinter(
+    { name: settings.deviceName, status: 0 },
+    'win32',
+  );
+  await f.service.retryAutoPrint(id);
+  await flush();
+  assert.equal(f.submissions.length, 1);
+  assert.equal(f.service.activity().autoPrint.status, 'submitted');
+  await assert.rejects(f.service.retryAutoPrint(id));
+  f.service.releaseAutoPrint(id, false);
+  f.devices = [];
+  const next = randomUUID();
+  f.service.autoStart(next);
+  await flush();
+  assert.equal(f.service.activity().autoPrint.status, 'failed');
+  f.service.releaseAutoPrint(next, true);
+  assert.equal(f.submissions.length, 1);
+});
+
+test('auto-print cannot use full sheets and an uncertain native job never permits retry', async (t) => {
+  assert.throws(
+    () =>
+      validatePrinterSettings({
+        ...settings,
+        layout: 'sheet',
+        autoPrint: true,
+      }),
+    /Photo printer/,
+  );
+  const f = await fixture(t, { ...settings, autoPrint: true });
+  f.devices[0] = describePrinter(
+    { name: settings.deviceName, status: 0 },
+    'win32',
+  );
+  f.adapter.submit = async (_html, _settings, _signal, submitting) => {
+    submitting();
+    throw new PrintUncertainError('Worker lost');
+  };
+  const id = randomUUID();
+  f.service.autoStart(id);
+  await flush();
+  assert.equal(f.service.activity().autoPrint.status, 'uncertain');
+  await assert.rejects(f.service.retryAutoPrint(id));
+  assert.throws(() => f.service.releaseAutoPrint(id, false));
+  f.service.releaseAutoPrint(id, true);
+  await f.service.checkAutoPrint();
+  assert.equal(f.service.activity().autoPrint, null);
 });
 
 test('auto fit uses one full sheet for square and wider frames and rotates landscape art', async (t) => {
