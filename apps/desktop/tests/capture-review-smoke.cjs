@@ -134,11 +134,13 @@ app.whenReady().then(async () => {
       target.photoCrops[areaIndex] = crop;
       return { ok: true, value: structuredClone(target) };
     });
-    handle('strip:preview', () =>
-      fileMissing || !savedJpeg
+    let inspectKioskSave;
+    handle('strip:preview', async () => {
+      await inspectKioskSave?.();
+      return fileMissing || !savedJpeg
         ? { ok: false, error: 'The saved strip file is missing.' }
-        : { ok: true, value: savedJpeg },
-    );
+        : { ok: true, value: savedJpeg };
+    });
     handle('printer:state', () => ({
       ok: true,
       value: {
@@ -573,6 +575,19 @@ app.whenReady().then(async () => {
     );
     await evaluate("document.querySelector('.guest-start-button').click()");
     await until("!!document.querySelector('.booth-setup')");
+    assert.equal(
+      await evaluate(
+        "document.querySelector('.booth-live-frame-toggle input').checked",
+      ),
+      false,
+    );
+    await evaluate(
+      "document.querySelector('.booth-live-frame-toggle input').click()",
+    );
+    assert.equal(
+      await evaluate("localStorage.getItem('vyora.kiosk-live-frame')"),
+      'true',
+    );
     await evaluate(
       "Array.from(document.querySelectorAll('.booth-frame-option')).filter(button => button.getAttribute('aria-pressed') !== 'true').forEach(button => button.click())",
     );
@@ -678,7 +693,61 @@ app.whenReady().then(async () => {
       'The open camera preview is tappable away from the prompt',
     );
     await evaluate("document.querySelector('.kiosk-start-surface').click()");
+    await until(
+      "document.querySelector('.live-frame-preview [role=status]')?.textContent === '0 of 4 photos'",
+    );
+    const previewSlots = `(() => {
+      const img = document.querySelector('.live-frame-preview img');
+      const xml = new DOMParser().parseFromString(decodeURIComponent(img.src.split(',')[1]), 'image/svg+xml');
+      return Array.from(xml.querySelectorAll('[data-slot]'), slot =>
+        slot.querySelector('image') ? 'photo' : slot.querySelector('.photo-placeholder text')?.textContent);
+    })()`;
+    assert.deepEqual(
+      await evaluate(previewSlots),
+      ['1', '2', '3', '4', '1', '1'],
+      'Every empty area shows its capture number, including linked areas',
+    );
+    await until(
+      "document.querySelector('.live-frame-preview [role=status]')?.textContent === '1 of 4 photos'",
+    );
+    assert.deepEqual(
+      await evaluate(previewSlots),
+      ['photo', '2', '3', '4', 'photo', 'photo'],
+      'The first capture fills each linked slot in the selected frame',
+    );
+    assert.ok(
+      await evaluate(`(() => {
+        const camera = document.querySelector('.viewfinder').getBoundingClientRect();
+        const frame = document.querySelector('.live-frame-preview').getBoundingClientRect();
+        return camera.width >= innerWidth * 0.7 && Math.abs(camera.right - frame.left) < 2;
+      })()`),
+      'The camera takes most of the viewport and does not overlap the frame',
+    );
+    const cameraWidth = await evaluate(
+      "document.querySelector('.viewfinder').getBoundingClientRect().width",
+    );
+    await evaluate(
+      "document.querySelector('.live-frame-preview img').decode()",
+    );
+    contents.invalidate();
+    await contents.capturePage();
+    await new Promise((resolve) => setTimeout(resolve, 180));
+    writeFileSync(
+      path.join(artifacts, 'kiosk-live-frame.png'),
+      (await contents.capturePage()).toPNG(),
+    );
     await until("!!document.querySelector('.capture-review[open]')", 30000);
+    assert.equal(
+      await evaluate(
+        "document.querySelector('.viewfinder').getBoundingClientRect().width",
+      ),
+      cameraWidth,
+      'The camera stays the same size as the review opens',
+    );
+    assert.equal(
+      await evaluate("!!document.querySelector('.live-frame-preview')"),
+      false,
+    );
     assert.equal(guestStrip.photos.length, 4);
     await evaluate(
       "document.querySelector('.capture-review-effects button:nth-child(2)').click()",
@@ -786,10 +855,21 @@ app.whenReady().then(async () => {
     );
     assert.deepEqual(guestStrip.photoCrops[4], { x: 0, y: 0.5, zoom: 2 });
     assert.deepEqual(guestStrip.photoCrops[5], { x: 0.5, y: 0.5, zoom: 1 });
+    let stayedInReview = false;
+    inspectKioskSave = async () => {
+      stayedInReview = await evaluate(
+        "!!document.querySelector('.capture-review[open] .capture-review-footer .primary-button:disabled') && !document.querySelector('.kiosk-start-surface')",
+      );
+    };
     await evaluate(
       "document.querySelector('.capture-review-footer .primary-button').click()",
     );
     await until("!!document.querySelector('.kiosk-stage-done')");
+    assert.equal(
+      stayedInReview,
+      true,
+      'Review stays visible while the saved JPEG is loading',
+    );
     await evaluate(
       "document.querySelector('.kiosk-done-preview img').decode()",
     );

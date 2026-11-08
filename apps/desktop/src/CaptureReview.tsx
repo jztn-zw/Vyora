@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { PhotoCrop, PhotoEffect, StripRecord } from '@vyora/shared';
 import { stripPreviewUrl } from './photo-strip';
 import { PhotoEffectPicker } from './PhotoEffectPicker';
@@ -10,6 +10,7 @@ import './capture-review.css';
 
 export function CaptureReview({
   strip,
+  preview,
   total,
   effect,
   exporting,
@@ -27,6 +28,7 @@ export function CaptureReview({
   onConfirm,
 }: {
   strip: StripRecord;
+  preview: string;
   total: number;
   effect: PhotoEffect;
   exporting: boolean;
@@ -51,27 +53,26 @@ export function CaptureReview({
   const [draft, setDraft] = useState<{ index: number; crop: PhotoCrop } | null>(
     null,
   );
-  const areas = photoAreaViews(strip, total);
-  const displayedStrip = useMemo(
+  const areas = useMemo(() => photoAreaViews(strip, total), [strip, total]);
+  const previewSource = useMemo(
     () =>
       draft
-        ? {
-            ...strip,
-            photoCrops: photoAreaViews(strip, total).map((area, index) =>
-              index === draft.index
-                ? draft.crop
-                : (area.crop ?? DEFAULT_PHOTO_CROP),
-            ),
-          }
-        : strip,
-    [strip, total, draft],
-  );
-  const preview = useMemo(
-    () => stripPreviewUrl(displayedStrip, effect),
-    [displayedStrip, effect],
+        ? stripPreviewUrl(
+            {
+              ...strip,
+              photoCrops: areas.map((area, index) =>
+                index === draft.index
+                  ? draft.crop
+                  : (area.crop ?? DEFAULT_PHOTO_CROP),
+              ),
+            },
+            effect,
+          )
+        : preview,
+    [areas, strip, draft, effect, preview],
   );
   const remaining = total - strip.photos.length;
-  useEffect(() => {
+  useLayoutEffect(() => {
     const element = dialog.current;
     element?.showModal();
     return () => element?.close();
@@ -134,7 +135,8 @@ export function CaptureReview({
             aria-label="Current strip preview"
           >
             <img
-              src={preview}
+              src={previewSource}
+              decoding="async"
               alt={`Your current ${strip.photos.length}-photo strip`}
             />
             <span>

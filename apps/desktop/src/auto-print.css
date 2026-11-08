@@ -1,23 +1,10 @@
-.booth-session-settings .booth-session-options {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px;
-  max-width: 880px;
-}
-.booth-session-options .auto-print-setting {
-  margin: 0;
-}
-@media (max-width: 760px) {
-  .booth-session-settings .booth-session-options {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
 .auto-print-toggle {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 20px;
-  padding: 14px 0;
+  min-height: 44px;
+  margin-top: 8px;
 }
 .auto-print-toggle strong {
   display: block;
@@ -28,6 +15,7 @@
   margin-top: 5px;
   color: var(--muted);
   font-size: 11px;
+  overflow-wrap: anywhere;
 }
 .auto-print-switch {
   flex-shrink: 0;
@@ -37,6 +25,27 @@
   justify-content: space-between;
   align-items: center;
   gap: 16px;
+  margin-top: 6px;
+}
+.auto-print-status {
+  margin-top: 10px;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--control-radius);
+  background: var(--paper);
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.auto-print-status strong {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--ink);
+  font-size: 12px;
+}
+.auto-print-setting-actions :is(.text-button, .outline-button) {
+  min-height: 32px;
 }
 .auto-print-screen {
   position: fixed;

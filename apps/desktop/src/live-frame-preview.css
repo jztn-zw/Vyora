@@ -1,0 +1,40 @@
+.capture-column.has-live-frame {
+  --live-frame-width: clamp(90px, 20vw, 240px);
+}
+.kiosk-mode .capture-column.has-live-frame > .viewfinder,
+.remote-booth .capture-column.has-live-frame > .guest-camera {
+  width: calc(100% - var(--live-frame-width));
+}
+.live-frame-preview {
+  position: fixed;
+  inset: 0 0 0 auto;
+  z-index: 3;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  width: var(--live-frame-width);
+  padding: 76px clamp(8px, 1.4vw, 20px) 24px;
+  border-inline-start: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink);
+  text-align: center;
+}
+.live-frame-preview strong,
+.live-frame-preview span {
+  display: block;
+}
+.live-frame-preview strong {
+  font-size: clamp(12px, 1.3vw, 16px);
+}
+.live-frame-preview span {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.live-frame-preview img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}

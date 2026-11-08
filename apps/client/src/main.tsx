@@ -180,9 +180,7 @@ function Home() {
       <section className="hero" id="home" aria-labelledby="hero-title">
         <div className="hero-layout page">
           <div className="hero-copy">
-            <h1 id="hero-title">
-              Photo booth software <em>for Windows.</em>
-            </h1>
+            <h1 id="hero-title">Photo booth software</h1>
             <p className="hero-description">
               Run your booth offline. Let guests pick a frame and retake individual shots, then save
               or print the finished strip.

@@ -38,6 +38,7 @@ import { StripViewer } from './StripViewer';
 import { StudioSelect } from './StudioSelect';
 import { CaptureReview } from './CaptureReview';
 import { CaptureShotRail } from './CaptureShotRail';
+import { LiveFramePreview } from './LiveFramePreview';
 import { CaptureCountdown } from './CaptureCountdown';
 import { AutoPrintSetting } from './AutoPrintSetting';
 import { AutoPrintScreen } from './AutoPrintScreen';
@@ -48,6 +49,7 @@ import { DeleteStripDialog } from './DeleteStripDialog';
 import { ExitBoothDialog } from './ExitBoothDialog';
 import { NoticeGate, UsageNoticeDialog } from './UsageNotice';
 import { FramePreview } from './FramePreview';
+import { PhotoPlaceholder } from './PhotoPlaceholder';
 import { FrameCarousel } from './FrameCarousel';
 import { capturePhotoCount } from './photo-sources';
 import { DEFAULT_PHOTO_CROP, photoAreaViews } from './photo-framing';
@@ -567,6 +569,13 @@ function App() {
   const connecting = cameraState.status === 'connecting';
   const [tab, setTab] = useState<'capture' | 'library'>('capture');
   const [organizerSetup, setOrganizerSetup] = useState(false);
+  const [showLiveFrame, setShowLiveFrame] = useState(() => {
+    try {
+      return localStorage.getItem('vyora.kiosk-live-frame') === 'true';
+    } catch {
+      return false;
+    }
+  });
   const [kioskFrameIds, setKioskFrameIds] = useState<string[]>(['']);
   const [kioskMode, setKioskMode] = useState(false);
   const [guestMode, setGuestMode] = useState<'assisted' | 'self-service'>(
@@ -811,7 +820,8 @@ function App() {
       if (request !== libraryRequest.current) return;
       if (result.ok) {
         setLibrary(result.value);
-        setPendingStrip(result.value.pendingStrip ?? null);
+        if (!savingStrip.current)
+          setPendingStrip(result.value.pendingStrip ?? null);
         setViewingStrip((current) =>
           current &&
           (result.value.strips.some((strip) => strip.id === current.id) ||
@@ -1128,42 +1138,30 @@ function App() {
   }
 
   async function exportStrip(id: string) {
-    setExportingStrip(id);
-    try {
-      const sources = await window.vyora.getStripSources(id);
-      if (!sources.ok) throw new Error(sources.error);
-      const jpeg = await renderStripJpeg(
-        sources.value,
-        pendingStrip?.id === id ? photoEffect : undefined,
-      );
-      const result = await window.vyora.saveStrip(id, jpeg);
-      if (!result.ok) throw new Error(result.error);
-      if (pendingStrip?.id === id) {
-        setCapturedSlots([]);
-        setCapturePhotos([]);
-        setProgress(0);
-        setRetaking(false);
-        setActivePhoto(1);
-        setCaptureGoal(shots);
-      }
-      setPendingStrip((pending) => (pending?.id === id ? null : pending));
-      await refreshLibrary();
-    } finally {
-      setExportingStrip('');
-    }
+    const sources = await window.vyora.getStripSources(id);
+    if (!sources.ok) throw new Error(sources.error);
+    const jpeg = await renderStripJpeg(
+      sources.value,
+      pendingStrip?.id === id ? photoEffect : undefined,
+    );
+    const result = await window.vyora.saveStrip(id, jpeg);
+    if (!result.ok) throw new Error(result.error);
+    await refreshLibrary();
   }
 
-  async function saveStrip(id: string, confirmed = false) {
+  async function saveStrip(id: string, afterSave?: () => Promise<void>) {
     if (session.current || savingStrip.current) return false;
-    if (pendingStrip?.id === id && !confirmed) {
+    if (pendingStrip?.id === id && !afterSave) {
       setReviewOpen(true);
       return false;
     }
     savingStrip.current = true;
+    setExportingStrip(id);
     setError('');
     try {
       if (!library?.strips.find((strip) => strip.id === id)?.preview)
         await exportStrip(id);
+      await afterSave?.();
       setMessage('Your confirmed photo strip is saved. A little moment, kept.');
       return true;
     } catch (cause) {
@@ -1175,44 +1173,45 @@ function App() {
       return false;
     } finally {
       savingStrip.current = false;
+      setExportingStrip('');
     }
   }
   async function confirmReview() {
     if (!pendingStrip || session.current || exportingStrip) return false;
     if (pendingStrip.photos.length !== shots) return false;
     const confirmed = pendingStrip;
-    const saved = await saveStrip(pendingStrip.id, true);
-    if (saved) {
-      setReviewOpen(false);
-      const automatic = await automaticPrint.refresh();
-      if (automatic) {
-        setGuestDone(false);
-        setKioskStripPreview('');
-        return true;
-      }
-      if (kioskMode || guestMode === 'self-service') {
-        setGuestDone(true);
+    return saveStrip(confirmed.id, async () => {
+      const automatic = await automaticPrint.refresh().catch(() => null);
+      if (!automatic && (kioskMode || guestMode === 'self-service')) {
+        let preview = reviewPreview;
         try {
-          const preview = await window.vyora.getStripPreview(confirmed.id);
-          setKioskStripPreview(
-            preview.ok
-              ? preview.value
-              : stripPreviewUrl(confirmed, photoEffect),
-          );
+          const result = await window.vyora.getStripPreview(confirmed.id);
+          if (result.ok) preview = result.value;
         } catch {
-          setKioskStripPreview(stripPreviewUrl(confirmed, photoEffect));
+          /* The composed review preview is available if the JPEG read fails. */
         }
+        setKioskStripPreview(preview);
+        setGuestDone(true);
         setKioskStage('done');
       } else {
         setGuestDone(false);
         setKioskStripPreview('');
-        if (guest.active) {
+        if (!automatic && guest.active) {
           setKioskStage('capture');
           if (!camera.canCapture()) void connectCamera();
-        } else setViewingStrip(confirmed);
+        } else if (!automatic) setViewingStrip(confirmed);
       }
-    }
-    return saved;
+      // Switch surfaces together after saving, including when the guest screen
+      // is waiting for the saved preview or the printer status.
+      setPendingStrip(null);
+      setReviewOpen(false);
+      setCapturedSlots([]);
+      setCapturePhotos([]);
+      setProgress(0);
+      setRetaking(false);
+      setActivePhoto(1);
+      setCaptureGoal(shots);
+    });
   }
 
   function openBoothSetup() {
@@ -1337,19 +1336,66 @@ function App() {
       preview:
         'data:image/svg+xml;charset=utf-8,' +
         encodeURIComponent(
-          renderToStaticMarkup(
-            <FramePreview template={choice.template} shots={shots} />,
-          ),
+          renderToStaticMarkup(<FramePreview template={choice.template} />),
         ),
     }));
-  }, [studioFrameChoices, kioskFrameIds, shots]);
-  const guestStrip = useMemo(
+  }, [studioFrameChoices, kioskFrameIds]);
+  const reviewPreview = useMemo(
     () =>
-      pendingStrip
+      pendingStrip && !running
         ? stripPreviewUrl(pendingStrip, photoEffect)
-        : kioskStripPreview,
-    [pendingStrip, photoEffect, kioskStripPreview],
+        : '',
+    [pendingStrip, photoEffect, running],
   );
+  const liveFrame = useMemo(() => {
+    if (!showLiveFrame || !kioskMode || !running) return '';
+    const template = pendingStrip
+      ? pendingStrip.template
+      : (selectedTemplate ?? undefined);
+    const photos = Array.from(
+      { length: shots },
+      (_, index) =>
+        capturePhotos[index] ?? {
+          id: String(index),
+          createdAt: '',
+          width: 600,
+          height: 394,
+          thumbnail: '',
+        },
+    );
+    const photoCrops = pendingStrip?.photoCrops
+      ? photoAreaViews(pendingStrip, shots).map(({ photoIndex, crop }) =>
+          photos[photoIndex] === pendingStrip.photos[photoIndex]
+            ? (crop ?? DEFAULT_PHOTO_CROP)
+            : DEFAULT_PHOTO_CROP,
+        )
+      : undefined;
+    return stripPreviewUrl(
+      {
+        id: 'live-frame',
+        createdAt:
+          pendingStrip?.createdAt ??
+          capturePhotos[0]?.createdAt ??
+          new Date().toISOString(),
+        photos,
+        template,
+        photoCrops,
+      },
+      pendingStrip ? photoEffect : 'original',
+      (index) => renderToStaticMarkup(<PhotoPlaceholder index={index} />),
+    );
+  }, [
+    showLiveFrame,
+    kioskMode,
+    running,
+    pendingStrip,
+    selectedTemplate,
+    shots,
+    capturePhotos,
+    photoEffect,
+  ]);
+  const keepFrameSpace =
+    showLiveFrame && kioskMode && (running || (reviewOpen && !!pendingStrip));
   const guestStage = automaticPrint.job
     ? 'printing'
     : running
@@ -1394,7 +1440,8 @@ function App() {
       message,
       error: cameraError || error,
       printJob: automaticPrint.job,
-      frames: guestFrames,
+      frames: guestStage === 'design' ? guestFrames : [],
+      keepFrameSpace,
       framing,
       areas: captureAreas,
       photos: (pendingStrip?.photos ?? capturePhotos)
@@ -1405,7 +1452,10 @@ function App() {
           width,
           height,
         })),
-      strip: guestStrip,
+      strip:
+        guestStage === 'capture'
+          ? liveFrame
+          : reviewPreview || kioskStripPreview,
     },
     async (command) => {
       if (
@@ -1559,9 +1609,7 @@ function App() {
           />
         </div>
         {kioskMode ? (
-          <div className="kiosk-topbar-center" aria-live="polite">
-            <span className="kiosk-live-dot" /> VYORA PHOTO BOOTH
-          </div>
+          <div className="kiosk-topbar-center">VYORA PHOTO BOOTH</div>
         ) : (
           <nav className="main-nav" aria-label="Main navigation">
             <button
@@ -1662,13 +1710,12 @@ function App() {
         )}
         <div className="page-heading" hidden={kioskMode || organizerSetup}>
           <div>
-            <p className="eyebrow">
-              <span /> A SPACE FOR YOUR GOOD TIMES
-            </p>
+            <p className="eyebrow">A SPACE FOR YOUR GOOD TIMES</p>
             <h1>
               {tab === 'capture' ? (
                 <>
-                  Life happens. <em>Keep a little.</em>
+                  Life happens{' '}
+                  <em className="studio-heading-accent">Keep a little</em>
                 </>
               ) : (
                 <>
@@ -1794,38 +1841,73 @@ function App() {
             >
               <div className="booth-session-heading">
                 <h2 id="booth-session-title">Session settings</h2>
-                <p>Set the pace and photo count before opening your booth.</p>
+                <p>
+                  Choose the countdown, capture preview, and printing options.
+                </p>
               </div>
               <div className="booth-session-options">
-                <fieldset
-                  className="booth-session-setting"
-                  aria-describedby="booth-countdown-description"
-                >
-                  <legend>Countdown</legend>
-                  <p id="booth-countdown-description">
-                    Time to get ready before each photo. Applies to every
-                    selected frame.
-                  </p>
-                  <div
-                    className="segmented"
-                    role="group"
-                    aria-label="Countdown duration"
-                  >
-                    {([3, 5, 10] as const).map((value) => (
-                      <button
-                        key={value}
-                        type="button"
-                        aria-label={value + ' seconds'}
-                        aria-pressed={timer === value}
-                        className={timer === value ? 'selected' : ''}
-                        onClick={() => setTimer(value)}
-                      >
-                        <strong>{value}</strong>
-                        <span>seconds</span>
-                      </button>
-                    ))}
+                <div className="booth-session-setting booth-capture-options">
+                  <div className="booth-countdown-row">
+                    <div className="booth-setting-copy">
+                      <h3 id="booth-countdown-title">Countdown</h3>
+                      <p id="booth-countdown-description">
+                        Time to get ready before each photo.
+                      </p>
+                    </div>
+                    <div
+                      className="segmented"
+                      role="group"
+                      aria-labelledby="booth-countdown-title"
+                      aria-describedby="booth-countdown-description"
+                    >
+                      {([3, 5, 10] as const).map((value) => (
+                        <button
+                          key={value}
+                          type="button"
+                          aria-label={value + ' seconds'}
+                          aria-pressed={timer === value}
+                          className={timer === value ? 'selected' : ''}
+                          onClick={() => setTimer(value)}
+                        >
+                          <strong>{value}</strong>
+                          <span>seconds</span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </fieldset>
+                  <label className="booth-live-frame-toggle">
+                    <span className="booth-setting-copy">
+                      <strong id="booth-live-frame-label">
+                        Live frame preview
+                      </strong>
+                      <span id="booth-live-frame-description">
+                        Fill the frame beside the camera as guests take photos.
+                      </span>
+                    </span>
+                    <span className="mirror-control">
+                      <input
+                        type="checkbox"
+                        role="switch"
+                        aria-labelledby="booth-live-frame-label"
+                        aria-describedby="booth-live-frame-description"
+                        checked={showLiveFrame}
+                        onChange={(event) => {
+                          const enabled = event.target.checked;
+                          setShowLiveFrame(enabled);
+                          try {
+                            localStorage.setItem(
+                              'vyora.kiosk-live-frame',
+                              String(enabled),
+                            );
+                          } catch {
+                            /* Keep the choice for the current app session. */
+                          }
+                        }}
+                      />
+                      <span className="switch-track" aria-hidden="true" />
+                    </span>
+                  </label>
+                </div>
                 <AutoPrintSetting
                   revision={printerRevision}
                   onPrinterSettings={() => setShowPrinterSettings(true)}
@@ -1938,7 +2020,10 @@ function App() {
           className="capture-layout"
           hidden={tab !== 'capture' || organizerSetup}
         >
-          <section className="capture-column" aria-label="Camera preview">
+          <section
+            className={`capture-column${keepFrameSpace ? ' has-live-frame' : ''}`}
+            aria-label="Camera preview"
+          >
             {kioskMode &&
               kioskStage === 'capture' &&
               !running &&
@@ -2004,7 +2089,7 @@ function App() {
                   {error}
                 </p>
               )}
-              {running && (
+              {running && !liveFrame && (
                 <CaptureShotRail
                   total={
                     retaking ? (pendingStrip?.photos.length ?? shots) : shots
@@ -2017,7 +2102,7 @@ function App() {
                 />
               )}
               <div className="preview-label">
-                <i className={ready ? 'live' : ''} />
+                {ready && <i className="live" aria-hidden="true" />}
                 {ready
                   ? 'LIVE PREVIEW'
                   : connecting
@@ -2035,13 +2120,13 @@ function App() {
                 <div className="camera-placeholder">
                   <div className="welcome-copy" aria-hidden="true">
                     <span className="welcome-kicker">
-                      LESS PERFECT. MORE YOU.
+                      LESS PERFECT, MORE YOU
                     </span>
                     <p>
-                      Oh, snap.
+                      Oh snap
                       <br />
-                      <span>That's</span>
-                      <br />a keeper.
+                      <span>That’s</span>
+                      <br />a keeper
                     </p>
                     <span className="welcome-caption">
                       The best moments aren't planned.
@@ -2149,9 +2234,15 @@ function App() {
                   </p>
                 )}
             </div>
+            {liveFrame && (
+              <LiveFramePreview
+                source={liveFrame}
+                captured={capturePhotos.length}
+                total={shots}
+              />
+            )}
             <div className="preview-footer">
               <span role="status">
-                <span className="status-dot" />
                 {connecting
                   ? 'Connecting…'
                   : ready
@@ -2724,6 +2815,7 @@ function App() {
         <CaptureReview
           key={pendingStrip.id}
           strip={pendingStrip}
+          preview={reviewPreview}
           total={shots}
           effect={photoEffect}
           exporting={!!exportingStrip}

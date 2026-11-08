@@ -187,8 +187,48 @@
   line-height: 1.6;
 }
 .booth-session-options {
-  max-width: 420px;
-  margin-top: 20px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 14px;
+  margin-top: 16px;
+}
+.booth-countdown-row,
+.booth-live-frame-toggle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+}
+.booth-countdown-row {
+  flex-wrap: wrap;
+}
+.booth-countdown-row .booth-setting-copy {
+  flex: 1 1 150px;
+}
+.booth-live-frame-toggle {
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  cursor: pointer;
+}
+.booth-live-frame-toggle .mirror-control {
+  flex: none;
+}
+.booth-setting-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.booth-setting-copy :is(h3, strong) {
+  margin: 0;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+.booth-setting-copy :is(p, span) {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
 }
 .booth-session-setting {
   display: flex;
@@ -200,6 +240,10 @@
   border-radius: 12px;
   background: var(--surface-inset);
 }
+.booth-capture-options {
+  justify-content: center;
+  gap: 14px;
+}
 .booth-session-setting legend {
   float: left;
   display: flex;
@@ -207,46 +251,36 @@
   flex-wrap: wrap;
   gap: 8px;
   width: 100%;
-  min-height: 22px;
   padding: 0;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
   color: var(--ink);
   font-size: 13px;
   font-weight: 600;
 }
-.booth-session-setting legend > span {
-  padding: 3px 6px;
-  border-radius: 4px;
-  color: var(--accent);
-  background: var(--accent-soft);
-  font-size: 9px;
-  font-weight: 500;
-}
 .booth-session-setting > p {
   clear: both;
-  min-height: 36px;
-  margin: 0 0 14px;
+  margin: 0;
   color: var(--muted);
   font-size: 11px;
   line-height: 1.6;
 }
-.booth-session-setting .segmented {
-  width: 100%;
-  gap: 8px;
-  margin-top: auto;
+.booth-countdown-row .segmented {
+  flex: 0 1 198px;
+  width: min(100%, 198px);
+  gap: 6px;
 }
 .booth-session-setting .segmented button {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  min-height: 60px;
-  padding: 10px 8px;
+  gap: 4px;
+  min-height: 46px;
+  padding: 7px 6px;
   border-radius: 8px;
 }
 .booth-session-setting button > strong {
-  font-size: 20px;
+  font-size: 16px;
   font-weight: 600;
   line-height: 1;
   font-variant-numeric: tabular-nums;
@@ -265,6 +299,11 @@
 }
 .booth-session-setting .segmented button.selected:disabled {
   border-color: var(--line-strong);
+}
+@media (max-width: 740px) {
+  .booth-session-options {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 .booth-setup-footer {
   display: flex;
@@ -305,20 +344,10 @@
   backdrop-filter: blur(18px);
 }
 .kiosk-topbar-center {
-  display: flex;
-  align-items: center;
-  gap: 9px;
   color: var(--muted);
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 1.8px;
-}
-.kiosk-live-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #9a49c8;
-  box-shadow: 0 0 12px #b04ee7a6;
 }
 .kiosk-mode .topbar-actions {
   min-width: 115px;
@@ -721,9 +750,6 @@
   }
   .booth-frame-preview {
     height: 150px;
-  }
-  .booth-session-setting > p {
-    min-height: 0;
   }
   .booth-setup-footer {
     flex-direction: column;

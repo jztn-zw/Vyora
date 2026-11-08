@@ -62,12 +62,13 @@ export function useGuestController(
       clearInterval(timer);
     };
   }, []);
-  const state = JSON.stringify(snapshot);
+  const state = active ? JSON.stringify({ ...snapshot, revision: 0 }) : '';
   useEffect(() => {
     if (!active) return;
+    const payload: GuestSnapshot = JSON.parse(state);
     const publish = () => {
       void window.vyora
-        .guestPublish({ ...JSON.parse(state), revision: 0 })
+        .guestPublish(payload)
         .then((result) => {
           if (!result.ok) setIssue(result.error);
         })
@@ -77,8 +78,14 @@ export function useGuestController(
     const heartbeat = setInterval(publish, 2000);
     return () => clearInterval(heartbeat);
   }, [state, active]);
+  const streamPreview =
+    active &&
+    snapshot.ready &&
+    (snapshot.stage === 'ready' ||
+      snapshot.stage === 'capture' ||
+      snapshot.stage === 'design');
   useEffect(() => {
-    if (!active) return;
+    if (!streamPreview) return;
     let stopped = false;
     let timeout: ReturnType<typeof setTimeout>;
     const canvas = document.createElement('canvas');
@@ -97,8 +104,10 @@ export function useGuestController(
           const blob = await new Promise<Blob | null>((resolve) =>
             canvas.toBlob(resolve, 'image/jpeg', 0.72),
           );
-          if (blob && !stopped && blob.size <= 160000)
-            await window.vyora.guestPreview(await blob.arrayBuffer());
+          if (blob && !stopped && blob.size <= 160000) {
+            const bytes = await blob.arrayBuffer();
+            if (!stopped) await window.vyora.guestPreview(bytes);
+          }
         }
       } catch {
         /* State polling surfaces a disconnected controller. */
@@ -111,7 +120,7 @@ export function useGuestController(
       clearTimeout(timeout);
       canvas.width = canvas.height = 0;
     };
-  }, [active, video]);
+  }, [streamPreview, video]);
   async function configure(input: Parameters<DesktopApi['guestConfigure']>[0]) {
     setIssue('');
     try {

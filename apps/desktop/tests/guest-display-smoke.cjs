@@ -39,6 +39,7 @@ app.whenReady().then(async () => {
       reply;
     let autoEnabled = false,
       printerConnected = true,
+      selectedPrinter = 'Microsoft Print to PDF',
       autoJob = null,
       printCount = 0;
     const pixel = nativeImage
@@ -87,7 +88,9 @@ app.whenReady().then(async () => {
       hub.publish(value);
       return { ok: true };
     });
+    let previewFrames = 0;
     handle('guest:preview', (value) => {
+      previewFrames++;
       hub.preview = Buffer.from(value);
       return { ok: true };
     });
@@ -122,6 +125,12 @@ app.whenReady().then(async () => {
     const printerState = () => ({
       devices: [
         {
+          name: 'Microsoft Print to PDF',
+          displayName: 'Microsoft Print to PDF',
+          virtual: true,
+          readiness: 'unavailable',
+        },
+        {
           name: 'Fixture photo printer',
           displayName: 'Fixture photo printer',
           readiness: printerConnected ? 'ready' : 'unavailable',
@@ -131,7 +140,7 @@ app.whenReady().then(async () => {
         },
       ],
       settings: {
-        deviceName: 'Fixture photo printer',
+        deviceName: selectedPrinter,
         layout: 'double-strip',
         copies: 1,
         autoPrint: autoEnabled,
@@ -142,6 +151,11 @@ app.whenReady().then(async () => {
       autoPrint: autoJob,
     });
     handle('printer:state', () => ({ ok: true, value: printerState() }));
+    handle('printer:settings', ({ deviceName }) => {
+      assert.equal(deviceName, 'Fixture photo printer');
+      selectedPrinter = deviceName;
+      return { ok: true, value: printerState().settings };
+    });
     handle('printer:activity', () => ({
       ok: true,
       value: {
@@ -372,6 +386,36 @@ app.whenReady().then(async () => {
       "document.querySelector('.guest-actions > summary').click(); Array.from(document.querySelectorAll('.guest-actions-menu button')).find(button => button.querySelector('strong')?.textContent === 'Start guest booth').click()",
     );
     await until(host, "!!document.querySelector('.booth-setup')");
+    await until(
+      host,
+      "document.querySelector('.auto-print-status')?.textContent.includes('Microsoft Print to PDF')",
+    );
+    assert.equal(
+      await run(host, "!!document.querySelector('.auto-print-toggle input')"),
+      false,
+    );
+    await run(
+      host,
+      "document.querySelector('.booth-session-settings').scrollIntoView({ block: 'center' })",
+    );
+    await capture(host, 'auto-print-printer-required.png');
+    await run(
+      host,
+      "document.querySelector('.auto-print-setting-actions .outline-button').click()",
+    );
+    await until(
+      host,
+      "!!document.querySelector('.printer-dialog[open] .studio-select-trigger:not(:disabled)')",
+    );
+    await run(
+      host,
+      "document.querySelector('.printer-dialog .studio-select-trigger').click()",
+    );
+    await run(
+      host,
+      "Array.from(document.querySelectorAll('.printer-dialog [role=option]')).find(option => option.textContent.includes('Fixture photo printer')).click()",
+    );
+    await run(host, "document.querySelector('.printer-footer button').click()");
     assert.equal(
       await run(
         host,
@@ -392,6 +436,10 @@ app.whenReady().then(async () => {
       "document.querySelector('.auto-print-toggle input').checked && !document.querySelector('.auto-print-toggle input').disabled",
     );
     assert.equal(autoEnabled, true);
+    await run(
+      host,
+      "document.querySelector('.booth-live-frame-toggle input').click()",
+    );
     await run(
       host,
       "document.querySelector('.booth-session-settings').scrollIntoView({ block: 'center' })",
@@ -494,6 +542,15 @@ app.whenReady().then(async () => {
       "!!document.querySelector('.kiosk-start-surface') && !document.querySelector('.kiosk-start-surface').disabled",
     );
     await run(guest, "document.querySelector('.kiosk-start-surface').click()");
+    await until(
+      guest,
+      "document.querySelector('.live-frame-preview [role=status]')?.textContent === '1 of 4 photos'",
+    );
+    await run(
+      guest,
+      "document.querySelector('.live-frame-preview img').decode()",
+    );
+    await capture(guest, 'guest-live-frame.png');
     await until(guest, "!!document.querySelector('.guest-review')", 35000);
     assert.equal(count, 4);
     await run(
@@ -509,11 +566,17 @@ app.whenReady().then(async () => {
       "document.querySelector('.capture-review-effects button:nth-child(2)').getAttribute('aria-pressed') === 'true'",
     );
     await capture(guest, 'guest-review.png');
+    const framesAtReview = previewFrames;
     await run(
       guest,
       "document.querySelector('.photo-positioner > button').click()",
     );
     await until(guest, "!!document.querySelector('.photo-positioner-canvas')");
+    assert.equal(
+      previewFrames,
+      framesAtReview,
+      'Camera encoding pauses during guest review',
+    );
     await run(
       guest,
       `(() => {

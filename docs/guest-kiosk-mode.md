@@ -15,7 +15,10 @@ and countdown on this computer.
    its number of distinct captures. Repeated photo numbers share a capture.
 3. The frame chooser clears and VYORA displays “Get ready for your photos.”
    Guests look at the camera and select **Start photos** to begin the countdown.
-   The camera fills the window, with a small **Exit booth** control in the corner.
+   Enable **Session settings → Live frame preview** to show the selected
+   frame beside the camera. The camera stays large, and the frame fills in as
+   each shot is taken on the kiosk and any connected guest screen. This choice
+   is remembered on this computer.
 4. On review, guests choose Original, Black & white or Warm and can select photos
    to retake. If capture stopped early, **Take remaining photos** finishes the
    session.

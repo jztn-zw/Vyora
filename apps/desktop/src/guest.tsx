@@ -112,6 +112,11 @@ function GuestScreen() {
     let timeout: ReturnType<typeof setTimeout>;
     let previous = '';
     const poll = async () => {
+      const stage = current.current?.stage;
+      if (stage !== 'ready' && stage !== 'design' && stage !== 'capture') {
+        timeout = setTimeout(() => void poll(), 120);
+        return;
+      }
       try {
         if (desktop) {
           const result = await window.vyora.guestReadPreview();

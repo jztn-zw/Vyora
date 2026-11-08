@@ -1,6 +1,7 @@
 import type { GuestCommand, GuestSnapshot, PhotoRecord } from '@vyora/shared';
 import { FrameCarousel } from './FrameCarousel';
 import { CaptureShotRail } from './CaptureShotRail';
+import { LiveFramePreview } from './LiveFramePreview';
 import { CaptureCountdown } from './CaptureCountdown';
 import { KioskStartSurface } from './KioskStartSurface';
 import { PhotoEffectPicker } from './PhotoEffectPicker';
@@ -33,6 +34,7 @@ export function GuestBoothView({
   const [adjusting, setAdjusting] = useState(false);
   useEffect(() => setAdjusting(false), [state.stage]);
   const assisted = state.mode === 'assisted';
+  const liveFrame = state.stage === 'capture' ? state.strip : '';
   const remaining = state.total - state.photos.length;
   const areas =
     state.areas ??
@@ -60,8 +62,10 @@ export function GuestBoothView({
           }
         />
       )}
-      <div className="capture-layout">
-        <section className="capture-column">
+      <div className="capture-layout" inert={state.stage === 'review'}>
+        <section
+          className={`capture-column${state.keepFrameSpace || liveFrame ? ' has-live-frame' : ''}`}
+        >
           <div className="viewfinder guest-camera">
             {preview && state.ready && (
               <img
@@ -88,22 +92,24 @@ export function GuestBoothView({
             )}
             {state.stage === 'capture' && (
               <>
-                <CaptureShotRail
-                  total={state.total}
-                  current={state.current}
-                  remaining={state.total - state.photos.length}
-                  retaking={false}
-                  areas={areas}
-                  photos={state.photos.map(
-                    (photo) =>
-                      ({
-                        ...photo,
-                        width: 0,
-                        height: 0,
-                        createdAt: '',
-                      }) as PhotoRecord,
-                  )}
-                />
+                {!liveFrame && (
+                  <CaptureShotRail
+                    total={state.total}
+                    current={state.current}
+                    remaining={state.total - state.photos.length}
+                    retaking={false}
+                    areas={areas}
+                    photos={state.photos.map(
+                      (photo) =>
+                        ({
+                          ...photo,
+                          width: 0,
+                          height: 0,
+                          createdAt: '',
+                        }) as PhotoRecord,
+                    )}
+                  />
+                )}
                 <CaptureCountdown
                   value={state.countdown}
                   endsAt={state.countdownEndsAt}
@@ -133,6 +139,13 @@ export function GuestBoothView({
               </p>
             )}
           </div>
+          {liveFrame && (
+            <LiveFramePreview
+              source={liveFrame}
+              captured={state.photos.length}
+              total={state.total}
+            />
+          )}
         </section>
       </div>
       {state.stage === 'ready' && !assisted && (
@@ -178,136 +191,145 @@ export function GuestBoothView({
         </section>
       )}
       {state.stage === 'review' && (
-        <section
-          className="guest-review capture-review-shell"
-          aria-label="Review your photos"
-        >
-          <header className="capture-review-header">
-            <div>
-              <span className="capture-review-kicker">
-                A LITTLE MOMENT. MAKE IT YOURS.
-              </span>
-              <h2>Happy with your photos?</h2>
-              <p>
-                {assisted
-                  ? 'Tell your organizer if you’d like to retake a photo.'
-                  : 'Choose a look for your strip and retake any photos before saving.'}
+        <>
+          <div className="guest-review-backdrop" aria-hidden="true" />
+          <section
+            className="guest-review capture-review-shell"
+            aria-label="Review your photos"
+          >
+            <header className="capture-review-header">
+              <div>
+                <span className="capture-review-kicker">
+                  A LITTLE MOMENT. MAKE IT YOURS.
+                </span>
+                <h2>Happy with your photos?</h2>
+                <p>
+                  {assisted
+                    ? 'Tell your organizer if you’d like to retake a photo.'
+                    : 'Choose a look for your strip and retake any photos before saving.'}
+                </p>
+              </div>
+            </header>
+            {state.error && (
+              <p className="capture-review-error" role="alert">
+                {state.error}
               </p>
-            </div>
-          </header>
-          {state.error && (
-            <p className="capture-review-error" role="alert">
-              {state.error}
-            </p>
-          )}
-          <div className="capture-review-body">
-            <section className="capture-review-preview guest-strip">
-              <img src={state.strip} alt="Your current photo strip" />
-            </section>
-            <section className="capture-review-choices">
-              {!assisted && (
-                <div className="capture-review-effects">
-                  <h3>Choose your look</h3>
-                  <PhotoEffectPicker
-                    value={state.effect}
+            )}
+            <div className="capture-review-body">
+              <section className="capture-review-preview guest-strip">
+                <img
+                  src={state.strip}
+                  decoding="async"
+                  alt="Your current photo strip"
+                />
+              </section>
+              <section className="capture-review-choices">
+                {!assisted && (
+                  <div className="capture-review-effects">
+                    <h3>Choose your look</h3>
+                    <PhotoEffectPicker
+                      value={state.effect}
+                      disabled={!canAct}
+                      onChange={(effect) => {
+                        if (effect !== (state.effect ?? 'original'))
+                          onAction('effect', { effect });
+                      }}
+                    />
+                  </div>
+                )}
+                <h3>Keep or retake</h3>
+                <div className="capture-review-photo-grid guest-retake-grid">
+                  {state.photos.map((photo, index) => (
+                    <button
+                      className="capture-review-photo"
+                      disabled={!canAct}
+                      key={photo.id}
+                      aria-pressed={selected.includes(photo.id)}
+                      onClick={() => onSelect(photo.id)}
+                    >
+                      <PhotoAreaImage
+                        photo={photo}
+                        area={
+                          areas.find((area) => area.photoIndex === index) ?? {
+                            photoIndex: index,
+                            width: 600,
+                            height: 394,
+                          }
+                        }
+                        effect={state.effect}
+                        label={`Photo ${index + 1}, as framed`}
+                      />
+                      <span>
+                        <strong>Photo {index + 1}</strong>
+                        <small>
+                          {selected.includes(photo.id) ? 'Retake ✓' : 'Keep'}
+                        </small>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                {!assisted && (
+                  <PhotoPositioner
+                    areas={areas}
+                    photos={state.photos}
+                    effect={state.effect}
                     disabled={!canAct}
-                    onChange={(effect) => {
-                      if (effect !== (state.effect ?? 'original'))
-                        onAction('effect', { effect });
+                    onEditingChange={setAdjusting}
+                    onApply={async (areaIndex, crop) => {
+                      if (!(await onAction('crop', { areaIndex, crop })))
+                        throw new Error(
+                          'Could not apply this position. Try again.',
+                        );
                     }}
                   />
-                </div>
-              )}
-              <h3>Keep or retake</h3>
-              <div className="capture-review-photo-grid guest-retake-grid">
-                {state.photos.map((photo, index) => (
+                )}
+                <p className="capture-review-selection-note">
+                  {selected.length
+                    ? `${selected.length} selected. Only these photos will be replaced.`
+                    : remaining > 0
+                      ? `Take ${remaining} more ${remaining === 1 ? 'photo' : 'photos'} to finish your strip.`
+                      : assisted
+                        ? 'Your organizer will confirm your finished strip.'
+                        : 'Your photos look good? Confirm below to save the strip.'}
+                </p>
+              </section>
+            </div>
+            {!assisted && (
+              <footer className="capture-review-footer guest-buttons">
+                <span>
+                  Not saved yet. Keep the booth open until you confirm.
+                </span>
+                <div>
                   <button
-                    className="capture-review-photo"
-                    disabled={!canAct}
-                    key={photo.id}
-                    aria-pressed={selected.includes(photo.id)}
-                    onClick={() => onSelect(photo.id)}
+                    className="outline-button"
+                    disabled={
+                      !canAct || !selected.length || !state.ready || adjusting
+                    }
+                    onClick={() => onAction('retake', { photoIds: selected })}
                   >
-                    <PhotoAreaImage
-                      photo={photo}
-                      area={
-                        areas.find((area) => area.photoIndex === index) ?? {
-                          photoIndex: index,
-                          width: 600,
-                          height: 394,
-                        }
-                      }
-                      effect={state.effect}
-                      label={`Photo ${index + 1}, as framed`}
-                    />
-                    <span>
-                      <strong>Photo {index + 1}</strong>
-                      <small>
-                        {selected.includes(photo.id) ? 'Retake ✓' : 'Keep'}
-                      </small>
-                    </span>
+                    Retake selected {selected.length || ''}
                   </button>
-                ))}
-              </div>
-              {!assisted && (
-                <PhotoPositioner
-                  areas={areas}
-                  photos={state.photos}
-                  effect={state.effect}
-                  disabled={!canAct}
-                  onEditingChange={setAdjusting}
-                  onApply={async (areaIndex, crop) => {
-                    if (!(await onAction('crop', { areaIndex, crop })))
-                      throw new Error(
-                        'Could not apply this position. Try again.',
-                      );
-                  }}
-                />
-              )}
-              <p className="capture-review-selection-note">
-                {selected.length
-                  ? `${selected.length} selected. Only these photos will be replaced.`
-                  : remaining > 0
-                    ? `Take ${remaining} more ${remaining === 1 ? 'photo' : 'photos'} to finish your strip.`
-                    : assisted
-                      ? 'Your organizer will confirm your finished strip.'
-                      : 'Your photos look good? Confirm below to save the strip.'}
-              </p>
-            </section>
-          </div>
-          {!assisted && (
-            <footer className="capture-review-footer guest-buttons">
-              <span>Not saved yet. Keep the booth open until you confirm.</span>
-              <div>
-                <button
-                  className="outline-button"
-                  disabled={
-                    !canAct || !selected.length || !state.ready || adjusting
-                  }
-                  onClick={() => onAction('retake', { photoIds: selected })}
-                >
-                  Retake selected {selected.length || ''}
-                </button>
-                <button
-                  className="primary-button"
-                  disabled={
-                    !canAct ||
-                    adjusting ||
-                    !!selected.length ||
-                    (remaining > 0 && !state.ready)
-                  }
-                  onClick={() =>
-                    onAction(remaining > 0 ? 'continue' : 'confirm')
-                  }
-                >
-                  {remaining > 0
-                    ? 'Take remaining photos'
-                    : 'Confirm & save strip'}
-                </button>
-              </div>
-            </footer>
-          )}
-        </section>
+                  <button
+                    className="primary-button"
+                    disabled={
+                      !canAct ||
+                      adjusting ||
+                      !!selected.length ||
+                      (remaining > 0 && !state.ready)
+                    }
+                    onClick={() =>
+                      onAction(remaining > 0 ? 'continue' : 'confirm')
+                    }
+                  >
+                    {remaining > 0
+                      ? 'Take remaining photos'
+                      : 'Confirm & save strip'}
+                  </button>
+                </div>
+              </footer>
+            )}
+          </section>
+        </>
       )}
       {state.stage === 'done' && (
         <section className="kiosk-screen kiosk-done-screen guest-done">

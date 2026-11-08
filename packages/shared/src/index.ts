@@ -256,6 +256,7 @@ export interface DesktopApi {
 export type PhotoEffect = 'original' | 'mono' | 'warm';
 
 export interface GuestSnapshot {
+  keepFrameSpace?: boolean;
   revision: number;
   theme: AppTheme;
   mode: 'assisted' | 'self-service';
@@ -279,6 +280,7 @@ export interface GuestSnapshot {
   photos: { id: string; thumbnail: string; width?: number; height?: number }[];
   areas?: PhotoAreaView[];
   framing?: PhotoFrameRect;
+  // Image for the current stage: live frame during capture, preview in review, or saved strip when done.
   strip: string;
 }
 export interface GuestCommand {

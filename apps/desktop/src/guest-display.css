@@ -51,6 +51,12 @@ body:has(.remote-booth) {
   color: var(--ink);
   font-size: 13px;
 }
+.guest-review-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9;
+  background: #100b18b8;
+}
 .remote-booth .guest-review {
   position: fixed;
   top: 50%;

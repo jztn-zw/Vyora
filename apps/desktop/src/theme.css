@@ -193,9 +193,6 @@ summary:focus-visible {
 .page-heading > div > p:last-child {
   color: var(--muted);
 }
-.eyebrow > span {
-  background: var(--accent);
-}
 .studio-stamp {
   color: var(--muted);
 }
@@ -262,16 +259,6 @@ summary:focus-visible {
 }
 .is-live .corner {
   border-color: white;
-}
-.preview-label i,
-.status-dot {
-  background: var(--accent);
-}
-.preview-label i.live {
-  background: white;
-}
-.preview-footer .status-dot {
-  background: var(--accent);
 }
 .camera-off-button,
 .mirror-control {

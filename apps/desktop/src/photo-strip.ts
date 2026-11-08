@@ -37,7 +37,11 @@ function escapeXml(value: string) {
   );
 }
 
-export function createStripSvg(strip: StripRecord, effect?: PhotoEffect) {
+export function createStripSvg(
+  strip: StripRecord,
+  effect?: PhotoEffect,
+  renderEmptySlot?: (photoIndex: number) => string,
+) {
   const filter =
     effect && effect !== 'original'
       ? ` style="filter:${photoEffectFilter(effect)}"`
@@ -50,7 +54,8 @@ export function createStripSvg(strip: StripRecord, effect?: PhotoEffect) {
     const frame = `<image data-layer="frame" href="${template.frame}" x="0" y="0" width="${template.width}" height="${template.height}"/>`;
     const photos = template.slots
       .map((slot, index) => {
-        const photo = strip.photos[photoSourceIndex(slot, index)];
+        const photoIndex = photoSourceIndex(slot, index);
+        const photo = strip.photos[photoIndex];
         if (
           photo?.thumbnail &&
           !/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(
@@ -67,7 +72,10 @@ export function createStripSvg(strip: StripRecord, effect?: PhotoEffect) {
           photo && crop
             ? photoPlacement(photo.width, photo.height, width, height, crop)
             : undefined;
-        return `<g transform="${photoSlotTransform(slot, template.width, template.height)}"><svg data-slot="${index + 1}" x="${x}" y="${y}" width="${width}" height="${height}" overflow="hidden"><rect width="100%" height="100%" fill="white"/>${photo?.thumbnail ? `<image href="${escapeXml(photo.thumbnail)}" ${fit ? `x="${fit.x}" y="${fit.y}" width="${fit.width}" height="${fit.height}"` : 'width="100%" height="100%"'} preserveAspectRatio="xMidYMid slice"${filter}/>` : ''}</svg></g>`;
+        const content = photo?.thumbnail
+          ? `<image href="${escapeXml(photo.thumbnail)}" ${fit ? `x="${fit.x}" y="${fit.y}" width="${fit.width}" height="${fit.height}"` : 'width="100%" height="100%"'} preserveAspectRatio="xMidYMid slice"${filter}/>`
+          : (renderEmptySlot?.(photoIndex) ?? '');
+        return `<g transform="${photoSlotTransform(slot, template.width, template.height)}"><svg data-slot="${index + 1}" x="${x}" y="${y}" width="${width}" height="${height}" overflow="hidden"><rect width="100%" height="100%" fill="white"/>${content}</svg></g>`;
       })
       .join('');
     return `<svg xmlns="http://www.w3.org/2000/svg" overflow="hidden" width="${template.width}" height="${template.height}" viewBox="0 0 ${template.width} ${template.height}"><title>${escapeXml(template.name)}</title><rect width="100%" height="100%" fill="white"/>${template.layer === 'background' ? frame + photos : photos + frame}</svg>`;
@@ -90,7 +98,18 @@ export function createStripSvg(strip: StripRecord, effect?: PhotoEffect) {
       const fit = crop
         ? photoPlacement(photo.width, photo.height, 600, PHOTO_HEIGHT, crop)
         : undefined;
-      return `${photo.thumbnail ? (fit ? `<svg x="60" y="${y}" width="600" height="${PHOTO_HEIGHT}" overflow="hidden"><image href="${escapeXml(photo.thumbnail)}" x="${fit.x}" y="${fit.y}" width="${fit.width}" height="${fit.height}"${filter}/></svg>` : `<image href="${escapeXml(photo.thumbnail)}" x="60" y="${y}" width="600" height="${PHOTO_HEIGHT}" preserveAspectRatio="xMidYMid slice"${filter}/>`) : `<rect x="60" y="${y}" width="600" height="${PHOTO_HEIGHT}" fill="white"/>`}
+      let content: string;
+      if (photo.thumbnail) {
+        const source = escapeXml(photo.thumbnail);
+        content = fit
+          ? `<svg x="60" y="${y}" width="600" height="${PHOTO_HEIGHT}" overflow="hidden"><image href="${source}" x="${fit.x}" y="${fit.y}" width="${fit.width}" height="${fit.height}"${filter}/></svg>`
+          : `<image href="${source}" x="60" y="${y}" width="600" height="${PHOTO_HEIGHT}" preserveAspectRatio="xMidYMid slice"${filter}/>`;
+      } else {
+        content = renderEmptySlot
+          ? `<svg x="60" y="${y}" width="600" height="${PHOTO_HEIGHT}" overflow="hidden">${renderEmptySlot(index)}</svg>`
+          : `<rect x="60" y="${y}" width="600" height="${PHOTO_HEIGHT}" fill="white"/>`;
+      }
+      return `${content}
       <g fill="white" font-family="monospace" font-size="16" text-anchor="middle">
         <path d="M${side - 7} ${y + 50}l7-16 7 16z"/><text x="${side}" y="${y + 76}">${String(index + 1).padStart(2, '0')}</text>
         <path d="M${side - 7} ${y + 90}h14l-7 16z"/>
@@ -188,8 +207,12 @@ export function createStripSvg(strip: StripRecord, effect?: PhotoEffect) {
   </svg>`;
 }
 
-export function stripPreviewUrl(strip: StripRecord, effect?: PhotoEffect) {
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(createStripSvg(strip, effect))}`;
+export function stripPreviewUrl(
+  strip: StripRecord,
+  effect?: PhotoEffect,
+  renderEmptySlot?: (photoIndex: number) => string,
+) {
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(createStripSvg(strip, effect, renderEmptySlot))}`;
 }
 
 export async function renderStripJpeg(
