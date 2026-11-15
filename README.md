@@ -3,26 +3,45 @@
 </h1>
 
 <p align="center">
-  <strong>VYORA Photobooth</strong><br>
-  The public website and setup guide for the offline-first Windows photobooth.
+  <strong>An offline-first photobooth for Windows</strong><br>
+  Capture photos, design strips, run a guest booth, and print from your local library.
 </p>
 
 <p align="center">
-  <a href="#about-the-website">About the website</a> ·
-  <a href="#quick-start">Quick start</a> ·
-  <a href="#deployment">Deployment</a> ·
-  <a href="#project-structure">Project structure</a>
+  <a href="#what-is-vyora">What is VYORA?</a> ·
+  <a href="#features">Features</a> ·
+  <a href="#using-the-booth">Using the booth</a> ·
+  <a href="#website-development">Website development</a>
 </p>
 
 <p align="center">
   <img src="apps/client/src/assets/vyora-studio-preview.webp" alt="Preview of VYORA Studio" width="880">
 </p>
 
-## About the website
+## What is VYORA?
 
-The website introduces VYORA, shows its booth and print features, and provides a setup guide. The Windows app is maintained separately. Desktop capture, saving, and printing do not depend on this website or its API.
+VYORA turns a Windows computer and camera into a photobooth. An operator can choose a frame, take a set of photos, review or retake shots, save the finished strip, and print it. For events, guests can use a self-service booth or a paired device on the same private Wi-Fi network or hotspot.
 
-## Quick start
+Capture, local saving, and printing work without an internet connection. The website introduces the app and provides a setup guide; the photobooth runs on the Windows computer.
+
+## Features
+
+| At the booth | What VYORA does |
+| --- | --- |
+| **Capture and review** | Choose a 3, 5, or 10 second countdown, adjust framing, apply an effect, and retake individual shots before saving. |
+| **Frames and layouts** | Pick an included VYORA frame or import a PNG or JPEG frame and place its photo areas in the template editor. |
+| **Guest sessions** | Run a full-screen booth on the host computer, use another monitor, or pair a guest device over local Wi-Fi. The host approves paired devices. |
+| **Save and print** | Keep completed strips in the local library. Print a strip, use optional auto-print, or arrange photos on supported paper sizes. The print preview warns if the saved image may look soft at the selected size. |
+
+## Using the booth
+
+VYORA runs on Windows 10 or 11 with a camera Windows can access. In **Photo booth**, choose a frame and countdown, enable the camera, and start a session. Review the photos, replace any shot you want to retake, then select **Confirm & save strip**. Open **My library** to view or print saved strips.
+
+A phone can provide video through a Windows webcam app. Compatible cameras can also use an optional tethered connection, depending on the camera model. A guest phone connected to the same local network can use VYORA's paired guest booth without internet access.
+
+## Website development
+
+This public repository contains the VYORA website and its API. The Windows application is maintained separately.
 
 Use Node.js 22.12 or newer in the 22.x series, or Node.js 24+. From the repository root:
 
