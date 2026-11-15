@@ -1,0 +1,33 @@
+{
+  "name": "vyora-web",
+  "version": "0.1.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "description": "VYORA website and API",
+  "workspaces": [
+    "apps/client",
+    "apps/server"
+  ],
+  "engines": {
+    "node": ">=22.12.0 <23 || >=24.0.0"
+  },
+  "scripts": {
+    "dev": "npm run dev:client",
+    "dev:client": "npm run dev --workspace=@vyora/client",
+    "dev:server": "npm run dev --workspace=@vyora/server",
+    "dev:viewer": "npm run dev:client",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "oxlint --deny-warnings apps",
+    "format": "oxfmt --write .",
+    "format:check": "oxfmt --check .",
+    "build:client": "npm run build --workspace=@vyora/client",
+    "build:server": "npm run build --workspace=@vyora/server",
+    "build:viewer": "npm run build:client",
+    "start:server": "npm run start --workspace=@vyora/server"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "oxlint": "^1.90.0",
+    "oxfmt": "^0.75.0"
+  }
+}

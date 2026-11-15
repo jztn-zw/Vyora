@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/src/assets/vyora-favicon.png" />
+    <meta name="theme-color" content="#fdfaff" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta
+      name="description"
+      content="VYORA is a Windows photo booth for capturing, retaking, saving, and printing custom photo strips."
+    />
+    <title>VYORA</title>
+    <style>
+      @media (prefers-reduced-motion: no-preference) {
+        @view-transition {
+          navigation: auto;
+        }
+      }
+    </style>
+    <script>
+      window.addEventListener('pagereveal', (event) => {
+        const transition = event.viewTransition;
+        if (!transition) return;
+
+        const root = document.documentElement;
+        transition.ready.catch(() => root.removeAttribute('data-native-transition'));
+
+        // A cold navigation can reach its first paint before React has mounted.
+        if (!document.querySelector('#root main')) {
+          transition.skipTransition();
+          return;
+        }
+
+        root.setAttribute('data-native-transition', '');
+      });
+    </script>
+    <link rel="stylesheet" href="/src/style.css" />
+    <script type="module" src="/src/main.tsx" blocking="render"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

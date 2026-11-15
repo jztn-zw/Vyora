@@ -1,0 +1,18 @@
+{
+  "name": "@vyora/server",
+  "version": "0.1.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "description": "VYORA website API starter",
+  "scripts": {
+    "dev": "node --env-file-if-exists=.env --watch --experimental-strip-types src/index.ts",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "start": "node --env-file-if-exists=.env dist/index.js"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^6.0.0"
+  }
+}
